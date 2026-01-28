@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 ULTIMATE FINAL (Persistent Data)</title>
+    <title>PO1 FINAL PRODUCTION</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -12,27 +12,38 @@
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { --bg-dark: #0b1120; --glass: rgba(30, 41, 59, 0.85); }
+        :root { --bg-dark: #020617; --glass: rgba(15, 23, 42, 0.9); --accent: #3b82f6; }
         body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-dark); color: white; overflow: hidden; }
         .font-tech { font-family: 'Chakra Petch', sans-serif; }
         
-        /* Glass & Glow */
-        .glass-panel { background: var(--glass); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
-        .glow-num { text-shadow: 0 0 15px currentColor; }
-        
-        /* Transition */
-        .smooth-move { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .fade-enter { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* UI Components */
+        .glass-panel { 
+            background: var(--glass); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+        }
+        .glow-num { text-shadow: 0 0 20px currentColor; }
+        .scene-btn { transition: all 0.2s; border-left: 3px solid transparent; }
+        .scene-btn:hover { background: rgba(255,255,255,0.05); }
+        .scene-btn.active { background: linear-gradient(90deg, rgba(59,130,246,0.2), transparent); border-left-color: var(--accent); color: var(--accent); font-weight: bold; }
 
-        /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; }
-        .ticker { display: inline-block; padding-left: 100%; animation: ticker 40s linear infinite; }
-        @keyframes ticker { to { transform: translateX(-100%); } }
+        /* Animation */
+        .fade-enter { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        /* Bar Animation */
+        .bar-fill { transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        /* Full Width Ticker */
+        .ticker-container { width: 100vw; overflow: hidden; white-space: nowrap; position: relative; }
+        .ticker-track { display: inline-block; white-space: nowrap; padding-left: 100vw; animation: ticker 30s linear infinite; }
+        @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 
         /* Transparent Mode */
         body.transparent .bg-main { background: transparent !important; }
         body.transparent .obs-hide { display: none !important; }
+        body.transparent .scene-bg { display: none !important; }
     </style>
 </head>
 <body>
@@ -40,22 +51,26 @@
 <div id="app" class="w-full h-full"></div>
 
 <script>
-    // --- 1. CONFIG & STATE ---
-    const STORAGE_KEY = 'PO1_FINAL_DB';
+    // --- 1. CONFIG ---
+    const STORAGE_KEY = 'PO1_PRO_DB_V2';
     
+    // Limits
+    const MAX_ZONE = 400;
+    const MAX_LIST = 100;
+
     const DEFAULT_DATA = {
         parties: [
             { id: 'p1', name: 'พรรคประชาชน', color: '#FF9100', zone: 120, list: 30 },
             { id: 'p2', name: 'เพื่อไทย', color: '#E60000', zone: 100, list: 25 },
             { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', zone: 50, list: 10 },
-            { id: 'p4', name: 'รทสช.', color: '#2C3E50', zone: 20, list: 5 }
+            { id: 'p4', name: 'รทสช.', color: '#2C3E50', zone: 20, list: 5 },
+            { id: 'p5', name: 'พลังประชารัฐ', color: '#166534', zone: 10, list: 2 }
         ],
-        scene: 'dashboard', // dashboard, chart, parliament, winner
-        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดผลคะแนนเรียลไทม์...',
+        scene: 'dashboard', // dashboard, chart, majority, cards, winner
+        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดผลคะแนนเรียลไทม์จากศูนย์ข้อมูล...',
         bg: 'dark'
     };
 
-    // Load Data
     function loadState() {
         const raw = localStorage.getItem(STORAGE_KEY);
         return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -66,7 +81,7 @@
     }
 
     let state = loadState();
-    let chartInstance = null; // เก็บตัวแปรกราฟ
+    let chartInstance = null;
 
     // --- 2. ROUTER ---
     const app = document.getElementById('app');
@@ -80,13 +95,19 @@
     // --- 3. MENU ---
     function renderMenu() {
         app.innerHTML = `
-            <div class="h-screen w-screen flex items-center justify-center bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-                <div class="glass-panel p-10 rounded-2xl text-center max-w-lg w-full border-t-4 border-orange-500 shadow-2xl">
-                    <h1 class="text-4xl font-tech font-bold text-white mb-2">PO1 <span class="text-orange-500">FINAL SYSTEM</span></h1>
-                    <p class="text-slate-400 mb-8 text-xs uppercase tracking-widest">Persistent Data & Multi-Scene</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="location.href='?mode=control'" class="py-6 bg-slate-800 hover:bg-orange-600 border border-slate-600 rounded transition font-bold">🎛️ CONTROL</button>
-                        <button onclick="location.href='?mode=onair'" class="py-6 bg-slate-800 hover:bg-blue-600 border border-slate-600 rounded transition font-bold">📺 ON-AIR</button>
+            <div class="h-screen w-screen flex items-center justify-center bg-slate-950 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 to-black">
+                <div class="glass-panel p-12 rounded-3xl text-center max-w-2xl w-full border border-white/10 shadow-2xl">
+                    <h1 class="text-6xl font-tech font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2">PO1 PRODUCTION</h1>
+                    <p class="text-slate-500 mb-10 text-sm uppercase tracking-[0.3em]">Full Broadcast System</p>
+                    <div class="grid grid-cols-2 gap-6">
+                        <button onclick="location.href='?mode=control'" class="group h-40 bg-slate-900 border border-slate-800 rounded-2xl hover:border-blue-500 transition-all flex flex-col items-center justify-center">
+                            <span class="text-4xl mb-2 group-hover:scale-110 transition">🎛️</span>
+                            <span class="font-bold text-slate-300 group-hover:text-blue-400">CONTROL ROOM</span>
+                        </button>
+                        <button onclick="location.href='?mode=onair'" class="group h-40 bg-slate-900 border border-slate-800 rounded-2xl hover:border-red-500 transition-all flex flex-col items-center justify-center">
+                            <span class="text-4xl mb-2 group-hover:scale-110 transition">📺</span>
+                            <span class="font-bold text-slate-300 group-hover:text-red-400">ON-AIR SCREEN</span>
+                        </button>
                     </div>
                 </div>
             </div>`;
@@ -94,141 +115,203 @@
 
     // --- 4. CONTROL ROOM ---
     function initControl() {
-        document.title = "Control Panel";
+        document.title = "Control - PO1";
         
         function renderUI() {
+            // คำนวณยอดรวมปัจจุบัน
+            const totalZone = state.parties.reduce((sum, p) => sum + p.zone, 0);
+            const totalList = state.parties.reduce((sum, p) => sum + p.list, 0);
+
             app.innerHTML = `
                 <div class="flex h-screen bg-slate-950 text-white font-sans text-sm">
-                    <div class="w-64 glass-panel border-r border-white/5 flex flex-col z-10">
-                        <div class="p-4 border-b border-white/10 flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                            <h2 class="font-bold text-slate-300">LIVE CONTROL</h2>
+                    <div class="w-72 glass-panel border-r border-white/5 flex flex-col z-20">
+                        <div class="p-5 border-b border-white/10">
+                            <div class="flex items-center gap-2 mb-1">
+                                <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_lime]"></div>
+                                <h2 class="font-bold text-slate-200 tracking-wide">LIVE CONTROL</h2>
+                            </div>
+                            <div class="text-[10px] text-slate-500 font-mono">ID: ${STORAGE_KEY}</div>
                         </div>
-                        <div class="p-4 space-y-2">
-                            <div class="text-[10px] text-slate-500 font-bold uppercase">SCENES</div>
-                            ${['dashboard', 'chart', 'parliament', 'winner'].map(s => `
-                                <button onclick="setScene('${s}')" class="w-full text-left p-3 rounded capitalize transition ${state.scene===s ? 'bg-orange-600 text-white font-bold shadow-lg' : 'hover:bg-white/5 text-slate-400'}">
-                                    ${getSceneIcon(s)} ${s}
+                        
+                        <div class="p-4 space-y-1">
+                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-2 px-2">Visual Scenes</div>
+                            ${[
+                                {id:'dashboard', label:'📊 Dashboard', desc:'ตารางคะแนนรวม'},
+                                {id:'majority', label:'⚖️ Majority Stack', desc:'กราฟแท่งรัฐบาล'},
+                                {id:'cards', label:'🃏 Top 3 Cards', desc:'แนะนำพรรคนำ'},
+                                {id:'chart', label:'🍩 Donut Chart', desc:'กราฟวงกลม'},
+                                {id:'winner', label:'🏆 Winner', desc:'ประกาศชัยชนะ'}
+                            ].map(s => `
+                                <button onclick="setScene('${s.id}')" class="scene-btn w-full text-left p-3 rounded-lg mb-1 ${state.scene===s.id ? 'active' : 'text-slate-400'}">
+                                    <div class="font-bold">${s.label}</div>
+                                    <div class="text-[10px] opacity-60 font-normal">${s.desc}</div>
                                 </button>
                             `).join('')}
                         </div>
-                        <div class="mt-auto p-4 border-t border-white/10 space-y-3">
+
+                        <div class="mt-auto p-4 border-t border-white/10 space-y-4 bg-black/20">
                             <div>
-                                <div class="text-[10px] text-slate-500 font-bold mb-1">BACKGROUND</div>
-                                <select onchange="setBg(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs">
+                                <div class="text-[10px] text-slate-500 font-bold uppercase mb-1">Background Mode</div>
+                                <select onchange="setBg(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-300">
                                     <option value="dark" ${state.bg==='dark'?'selected':''}>Dark Studio</option>
                                     <option value="transparent" ${state.bg==='transparent'?'selected':''}>Transparent (OBS)</option>
                                 </select>
                             </div>
-                            <textarea oninput="setTicker(this.value)" class="w-full h-16 bg-slate-900 border border-slate-700 rounded p-2 text-xs resize-none" placeholder="Ticker...">${state.ticker}</textarea>
-                            <a href="?mode=onair" target="_blank" class="block text-center p-2 bg-blue-600 rounded hover:bg-blue-500 text-xs font-bold">OPEN DISPLAY ↗</a>
+                            <div>
+                                <div class="flex justify-between items-end mb-1">
+                                    <div class="text-[10px] text-slate-500 font-bold uppercase">Ticker Message</div>
+                                    <div class="text-[9px] text-orange-400 font-bold" id="ticker-status">READY</div>
+                                </div>
+                                <textarea id="ticker-input" class="w-full h-16 bg-slate-900 border border-slate-700 rounded p-2 text-xs resize-none text-white focus:border-blue-500 focus:outline-none placeholder-slate-600" placeholder="Type message here...">${state.ticker}</textarea>
+                                <button onclick="pushTicker()" class="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold transition flex items-center justify-center gap-2">
+                                    <span>🚀 SEND TO SCREEN</span>
+                                </button>
+                            </div>
+                            <a href="?mode=onair" target="_blank" class="block text-center text-[10px] text-slate-500 hover:text-white transition">OPEN DISPLAY WINDOW ↗</a>
                         </div>
                     </div>
 
-                    <div class="flex-1 p-6 overflow-y-auto bg-[#0f1218]">
-                        <div class="max-w-5xl mx-auto space-y-3">
-                             <div class="flex justify-between items-end mb-4 px-2">
-                                <h2 class="text-xl font-bold">Party Scoring</h2>
-                                <div class="text-xs text-slate-500 font-mono">TOTAL: <span id="total-seats" class="text-white text-lg font-bold">0</span>/500</div>
-                            </div>
-                            ${state.parties.map((p, i) => `
-                                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 flex items-center gap-4 shadow-sm hover:bg-slate-800 transition" style="border-color:${p.color}">
-                                    <div class="flex items-center gap-2 w-1/4">
-                                        <input type="color" value="${p.color}" onchange="updateVal(${i}, 'color', this.value)" class="w-6 h-6 rounded border-0 cursor-pointer">
-                                        <input type="text" value="${p.name}" oninput="updateVal(${i}, 'name', this.value)" class="bg-transparent font-bold text-lg w-full focus:outline-none">
-                                    </div>
-                                    
-                                    <div class="flex-1 bg-black/20 p-2 rounded flex flex-col items-center">
-                                        <span class="text-[10px] text-slate-500 uppercase">แบ่งเขต</span>
-                                        <div class="flex items-center gap-2">
-                                            <button onclick="adj(${i}, 'zone', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-red-500 transition">-</button>
-                                            <input type="number" value="${p.zone}" oninput="updateVal(${i}, 'zone', this.value)" class="w-16 bg-transparent text-center font-tech font-bold text-xl text-yellow-400 focus:outline-none">
-                                            <button onclick="adj(${i}, 'zone', 1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-green-500 transition">+</button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="flex-1 bg-black/20 p-2 rounded flex flex-col items-center">
-                                        <span class="text-[10px] text-slate-500 uppercase">บัญชีรายชื่อ</span>
-                                        <div class="flex items-center gap-2">
-                                            <button onclick="adj(${i}, 'list', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-red-500 transition">-</button>
-                                            <input type="number" value="${p.list}" oninput="updateVal(${i}, 'list', this.value)" class="w-16 bg-transparent text-center font-tech font-bold text-xl text-blue-400 focus:outline-none">
-                                            <button onclick="adj(${i}, 'list', 1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-green-500 transition">+</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="w-16 text-center">
-                                        <div class="text-[10px] text-slate-500">SUM</div>
-                                        <div class="text-2xl font-tech font-bold">${p.zone + p.list}</div>
+                    <div class="flex-1 p-8 overflow-y-auto bg-[#0b0f17]">
+                        <div class="max-w-5xl mx-auto">
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+                                    <span class="text-slate-400 text-xs uppercase font-bold">Zone Used</span>
+                                    <div class="text-2xl font-tech font-bold ${totalZone >= MAX_ZONE ? 'text-red-500' : 'text-blue-400'}">
+                                        ${totalZone} <span class="text-sm text-slate-600">/ ${MAX_ZONE}</span>
                                     </div>
                                 </div>
-                            `).join('')}
+                                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+                                    <span class="text-slate-400 text-xs uppercase font-bold">List Used</span>
+                                    <div class="text-2xl font-tech font-bold ${totalList >= MAX_LIST ? 'text-red-500' : 'text-green-400'}">
+                                        ${totalList} <span class="text-sm text-slate-600">/ ${MAX_LIST}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${state.parties.map((p, i) => `
+                                    <div class="bg-slate-900 p-4 rounded-xl border-l-4 shadow-lg flex items-center gap-6 group transition hover:bg-slate-800" style="border-color:${p.color}">
+                                        
+                                        <div class="flex items-center gap-3 w-1/4">
+                                            <input type="color" value="${p.color}" onchange="updateVal(${i}, 'color', this.value)" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
+                                            <input type="text" value="${p.name}" oninput="updateVal(${i}, 'name', this.value)" class="bg-transparent font-bold text-lg w-full focus:outline-none border-b border-transparent focus:border-slate-600">
+                                        </div>
+                                        
+                                        <div class="flex-1 bg-black/20 p-2 rounded-lg flex flex-col items-center relative overflow-hidden">
+                                            <span class="text-[9px] text-slate-500 uppercase font-bold tracking-wider z-10">แบ่งเขต (Max 400)</span>
+                                            <div class="flex items-center gap-2 mt-1 z-10">
+                                                <button onclick="adj(${i}, 'zone', -1)" class="w-8 h-8 rounded bg-slate-700 hover:bg-red-500 transition font-bold text-lg">-</button>
+                                                <input type="number" value="${p.zone}" onchange="manualInput(${i}, 'zone', this.value)" class="w-20 bg-transparent text-center font-tech font-bold text-2xl text-yellow-400 focus:outline-none">
+                                                <button onclick="adj(${i}, 'zone', 1)" class="w-8 h-8 rounded bg-slate-700 ${totalZone >= MAX_ZONE ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-500'} transition font-bold text-lg" ${totalZone >= MAX_ZONE ? 'disabled' : ''}>+</button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex-1 bg-black/20 p-2 rounded-lg flex flex-col items-center relative overflow-hidden">
+                                            <span class="text-[9px] text-slate-500 uppercase font-bold tracking-wider z-10">บัญชีรายชื่อ (Max 100)</span>
+                                            <div class="flex items-center gap-2 mt-1 z-10">
+                                                <button onclick="adj(${i}, 'list', -1)" class="w-8 h-8 rounded bg-slate-700 hover:bg-red-500 transition font-bold text-lg">-</button>
+                                                <input type="number" value="${p.list}" onchange="manualInput(${i}, 'list', this.value)" class="w-20 bg-transparent text-center font-tech font-bold text-2xl text-blue-400 focus:outline-none">
+                                                <button onclick="adj(${i}, 'list', 1)" class="w-8 h-8 rounded bg-slate-700 ${totalList >= MAX_LIST ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-500'} transition font-bold text-lg" ${totalList >= MAX_LIST ? 'disabled' : ''}>+</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="w-20 text-center">
+                                            <div class="text-[9px] text-slate-500 uppercase">SUM</div>
+                                            <div class="text-3xl font-tech font-bold">${p.zone + p.list}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>`;
-            calcTotal();
         }
 
-        window.updateVal = (i, k, v) => {
-            if(k==='zone' || k==='list') v = parseInt(v) || 0;
-            state.parties[i][k] = v;
-            saveState(state);
-            calcTotal();
+        // Logic Functions
+        window.updateVal = (i, k, v) => { state.parties[i][k] = v; saveState(state); }; // For Name/Color
+        
+        window.manualInput = (i, type, val) => {
+            val = parseInt(val) || 0;
+            const currentVal = state.parties[i][type];
+            const diff = val - currentVal;
+            // Check limits for manual input
+            const total = state.parties.reduce((sum, p) => sum + p[type], 0);
+            const limit = type === 'zone' ? MAX_ZONE : MAX_LIST;
+            
+            if (total + diff <= limit) {
+                state.parties[i][type] = Math.max(0, val);
+                saveState(state);
+                renderUI();
+            } else {
+                alert(`โควต้าเต็มแล้ว! (${limit} ที่นั่ง)`);
+                renderUI(); // Reset input visual
+            }
         };
-        window.adj = (i, k, delta) => {
-            state.parties[i][k] = Math.max(0, state.parties[i][k] + delta);
+
+        window.adj = (i, type, delta) => {
+            const total = state.parties.reduce((sum, p) => sum + p[type], 0);
+            const limit = type === 'zone' ? MAX_ZONE : MAX_LIST;
+
+            // Prevent adding if limit reached
+            if (delta > 0 && total >= limit) return;
+
+            state.parties[i][type] = Math.max(0, state.parties[i][type] + delta);
             saveState(state);
             renderUI(); 
         };
+
         window.setScene = (s) => { state.scene = s; saveState(state); renderUI(); };
         window.setBg = (b) => { state.bg = b; saveState(state); };
-        window.setTicker = (t) => { state.ticker = t; saveState(state); };
-        window.calcTotal = () => {
-             const t = state.parties.reduce((a,b) => a + b.zone + b.list, 0);
-             const el = document.getElementById('total-seats');
-             if(el) el.innerText = t;
+        
+        window.pushTicker = () => {
+            const txt = document.getElementById('ticker-input').value;
+            state.ticker = txt;
+            saveState(state);
+            const status = document.getElementById('ticker-status');
+            status.innerText = "SENT!";
+            status.className = "text-[9px] text-green-500 font-bold";
+            setTimeout(() => { status.innerText = "READY"; status.className = "text-[9px] text-orange-400 font-bold"; }, 2000);
         };
-        window.getSceneIcon = (s) => {
-            return { dashboard: '📊', chart: '🍩', parliament: '🏛️', winner: '🏆' }[s] || '📺';
-        }
 
         renderUI();
     }
 
     // --- 5. ON-AIR DISPLAY ---
     function initOnAir() {
-        document.title = "ON AIR";
+        document.title = "ON AIR DISPLAY";
         
-        // Structure
+        // Base Layout
         app.innerHTML = `
-            <div id="main-view" class="w-full h-full flex flex-col bg-main bg-slate-950 transition-colors duration-500 relative">
-                <div class="h-20 flex justify-between items-center px-10 z-50 obs-hide pt-4">
-                    <div class="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
-                        <div class="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-                        <div class="w-2 h-2 rounded-full bg-red-500 absolute"></div>
-                        <span class="font-bold text-sm text-slate-200 tracking-wider">LIVE DATA</span>
+            <div id="main-view" class="w-full h-full flex flex-col bg-main bg-slate-950 transition-colors duration-500 relative overflow-hidden">
+                <div class="scene-bg absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 pointer-events-none"></div>
+                
+                <div class="h-20 w-full flex justify-between items-center px-10 pt-4 z-50 obs-hide">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">LIVE</div>
+                        <div class="text-slate-400 text-sm font-tech tracking-widest">OFFICIAL COUNT</div>
                     </div>
                     <div class="text-right">
-                        <div class="text-xs text-slate-400 font-bold uppercase">Current Time</div>
-                        <div id="clock" class="font-tech font-bold text-3xl text-white leading-none">00:00:00</div>
+                        <div class="text-[10px] text-slate-500 font-bold uppercase">Current Time</div>
+                        <div id="clock" class="font-tech font-bold text-3xl text-white leading-none">00:00</div>
                     </div>
                 </div>
 
-                <div id="stage" class="flex-1 relative p-10 flex items-center justify-center"></div>
+                <div id="stage" class="flex-1 relative p-10 flex items-center justify-center z-10"></div>
 
-                <div class="h-16 bg-slate-900 border-t border-slate-800 flex items-center shadow-2xl relative z-40">
-                    <div class="bg-gradient-to-r from-orange-600 to-red-600 h-full px-8 flex flex-col justify-center items-center shrink-0 z-10">
-                        <span class="font-tech font-bold text-xl text-white tracking-widest italic">BREAKING</span>
+                <div class="h-14 bg-slate-900 border-t border-slate-800 flex items-center shadow-[0_-5px_20px_rgba(0,0,0,0.5)] relative z-50">
+                    <div class="bg-blue-600 h-full px-8 flex items-center justify-center shrink-0 z-20 shadow-lg">
+                        <span class="font-bold text-white tracking-widest text-sm">UPDATE</span>
                     </div>
-                    <div class="flex-1 ticker-wrap bg-slate-950/80 h-full flex items-center">
-                        <div id="ticker-text" class="ticker text-xl font-light text-slate-200 px-4 pt-1">Loading...</div>
+                    <div class="ticker-container bg-slate-950/90 h-full flex items-center">
+                        <div id="ticker-text" class="ticker-track text-xl font-light text-slate-200">Loading...</div>
                     </div>
                 </div>
             </div>`;
 
         // Clock
-        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString('th-TH'), 1000);
+        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}), 1000);
 
-        // Smart Update Loop
+        // Render Loop
         let currentScene = '';
         
         setInterval(() => {
@@ -238,77 +321,123 @@
             const view = document.getElementById('main-view');
             if(newState.bg === 'transparent') document.body.classList.add('transparent');
             else document.body.classList.remove('transparent');
-            document.getElementById('ticker-text').innerText = newState.ticker;
-
-            // 2. Scene Management
-            const stage = document.getElementById('stage');
             
-            // ถ้าเปลี่ยน Scene: ล้างกระดานแล้ววาดโครงใหม่
+            // Ticker Update (Only if changed to prevent jump)
+            const tickerEl = document.getElementById('ticker-text');
+            if(tickerEl.innerText !== newState.ticker) tickerEl.innerText = newState.ticker;
+
+            // 2. Scene Rendering
+            const stage = document.getElementById('stage');
             if (newState.scene !== currentScene) {
                 renderSceneStructure(stage, newState);
                 currentScene = newState.scene;
             } else {
-                // ถ้า Scene เดิม: อัพเดทแค่ตัวเลข (Update Values Only)
                 updateSceneValues(newState);
             }
-
-            state = newState; // Sync local state
-        }, 300); // Check every 300ms
+            state = newState;
+        }, 200);
     }
 
-    // --- 6. SCENE RENDERERS (THE FIX) ---
+    // --- 6. SCENE RENDERERS ---
 
-    // ฟังก์ชันนี้จะถูกเรียกเมื่อเปลี่ยน Scene เท่านั้น (สร้าง DOM ใหม่)
     function renderSceneStructure(container, data) {
-        // ทำลาย Chart เก่าถ้ามี
         if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
-        
-        container.innerHTML = ''; // Clear
+        container.innerHTML = ''; 
         const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
 
-        // 🟢 SCENE 1: DASHBOARD
+        // 1. DASHBOARD (Standard)
         if(data.scene === 'dashboard') {
-            let html = `<div class="w-full max-w-6xl space-y-3 fade-enter">
-                <div class="flex text-xs text-slate-500 uppercase tracking-widest px-6 mb-1">
-                    <div class="w-16">Rank</div>
-                    <div class="flex-1">Party</div>
-                    <div class="w-32 text-center">Zone</div>
-                    <div class="w-32 text-center">List</div>
-                    <div class="w-40 text-right">Total</div>
-                </div>`;
-            
-            sorted.forEach((p, i) => {
-                const total = p.zone + p.list;
-                // FIX: ใส่ค่า ${p.zone} ลงไปเลย ไม่ต้องรอ Update Loop เพื่อกันเลขเป็น 0
-                html += `
-                <div class="glass-panel p-4 rounded-xl flex items-center border-l-4 relative overflow-hidden group transition-all" style="border-color:${p.color}">
-                    <div class="w-16 font-tech text-3xl font-bold text-slate-600">#${i+1}</div>
-                    <div class="flex-1 z-10">
-                        <h2 class="text-2xl font-bold text-white mb-1">${p.name}</h2>
-                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div class="h-full transition-all duration-1000" style="width:${(total/500)*100}%; background:${p.color}" id="bar-${p.id}"></div>
-                        </div>
+            container.innerHTML = `
+                <div class="w-full max-w-6xl fade-enter">
+                     <div class="flex text-xs text-slate-500 uppercase tracking-widest px-6 mb-2">
+                        <div class="w-16">#</div>
+                        <div class="flex-1">Party</div>
+                        <div class="w-32 text-center">Zone</div>
+                        <div class="w-32 text-center">List</div>
+                        <div class="w-40 text-right">Total</div>
                     </div>
-                    <div class="w-32 text-center text-2xl font-tech font-bold text-yellow-500" id="val-zone-${p.id}">${p.zone}</div>
-                    <div class="w-32 text-center text-2xl font-tech font-bold text-blue-400" id="val-list-${p.id}">${p.list}</div>
-                    <div class="w-40 text-right text-5xl font-tech font-bold text-white glow-num" id="val-total-${p.id}" style="color:${p.color}">${total}</div>
+                    <div class="space-y-3">
+                        ${sorted.map((p, i) => `
+                        <div class="glass-panel p-4 rounded-xl flex items-center border-l-4 relative overflow-hidden" style="border-color:${p.color}">
+                            <div class="w-16 font-tech text-3xl font-bold text-slate-600">0${i+1}</div>
+                            <div class="flex-1 z-10">
+                                <h2 class="text-2xl font-bold text-white mb-1">${p.name}</h2>
+                                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="h-full bar-fill" style="width:0%; background:${p.color}" id="bar-${p.id}"></div>
+                                </div>
+                            </div>
+                            <div class="w-32 text-center text-2xl font-tech font-bold text-yellow-500" id="val-zone-${p.id}">0</div>
+                            <div class="w-32 text-center text-2xl font-tech font-bold text-blue-400" id="val-list-${p.id}">0</div>
+                            <div class="w-40 text-right text-5xl font-tech font-bold text-white glow-num" id="val-total-${p.id}" style="color:${p.color}">0</div>
+                        </div>`).join('')}
+                    </div>
                 </div>`;
-            });
-            html += `</div>`;
-            container.innerHTML = html;
         }
 
-        // 🟢 SCENE 2: CHART (DONUT)
+        // 2. MAJORITY STACK (New!)
+        else if(data.scene === 'majority') {
+            container.innerHTML = `
+                <div class="w-full max-w-6xl fade-enter flex flex-col items-center justify-center">
+                    <h2 class="text-4xl font-bold mb-12 uppercase tracking-widest text-white">Parliament Majority</h2>
+                    
+                    <div class="w-full h-32 bg-slate-800 rounded-full overflow-hidden flex relative shadow-2xl border-4 border-slate-700">
+                        ${sorted.map(p => `
+                            <div class="h-full bar-fill relative group" id="stack-${p.id}" style="width:0%; background:${p.color}">
+                                <div class="absolute inset-0 flex items-center justify-center font-bold text-white opacity-0 group-hover:opacity-100 bg-black/20 transition backdrop-blur-sm text-xl">${p.name}</div>
+                            </div>
+                        `).join('')}
+                        
+                        <div class="absolute top-0 bottom-0 w-1 bg-white left-1/2 z-20 shadow-[0_0_20px_white]"></div>
+                        <div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-black px-4 py-1 rounded-full font-bold shadow-lg text-sm">MAJORITY 251</div>
+                    </div>
+
+                    <div class="flex flex-wrap justify-center gap-6 mt-12">
+                         ${sorted.map(p => `
+                            <div class="flex items-center gap-3 glass-panel px-4 py-2 rounded-lg">
+                                <div class="w-3 h-3 rounded-full" style="background:${p.color}"></div>
+                                <span class="font-bold text-lg">${p.name}</span>
+                                <span class="font-tech text-xl text-slate-400" id="maj-val-${p.id}">0</span>
+                            </div>
+                         `).join('')}
+                    </div>
+                </div>`;
+        }
+
+        // 3. TOP 3 CARDS (New!)
+        else if(data.scene === 'cards') {
+            container.innerHTML = `
+                <div class="flex items-end justify-center gap-6 w-full max-w-7xl fade-enter">
+                    ${[1, 0, 2].map(idx => { // Order: 2nd, 1st, 3rd
+                        const p = sorted[idx];
+                        if(!p) return '';
+                        const height = idx === 0 ? 'h-96' : 'h-80'; // 1st place taller
+                        const order = idx === 0 ? 'order-2' : (idx === 1 ? 'order-1' : 'order-3');
+                        return `
+                        <div class="${order} ${height} w-80 glass-panel rounded-2xl flex flex-col items-center p-6 border-t-8 shadow-2xl relative" style="border-color:${p.color}">
+                            <div class="absolute -top-6 bg-slate-900 border border-slate-700 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-slate-400">Rank ${idx+1}</div>
+                            <h2 class="text-3xl font-bold text-center mt-4 mb-2 h-16 flex items-center">${p.name}</h2>
+                            <div class="flex-1 flex items-center justify-center">
+                                <div class="text-8xl font-tech font-bold glow-num" style="color:${p.color}" id="card-val-${p.id}">0</div>
+                            </div>
+                            <div class="w-full grid grid-cols-2 gap-2 mt-4 text-center text-sm text-slate-400 bg-black/20 p-2 rounded-lg">
+                                <div>Zone <span class="text-white block font-bold text-lg" id="card-zone-${p.id}">0</span></div>
+                                <div>List <span class="text-white block font-bold text-lg" id="card-list-${p.id}">0</span></div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>`;
+        }
+
+        // 4. CHART
         else if(data.scene === 'chart') {
             container.innerHTML = `
                 <div class="glass-panel p-10 rounded-3xl flex flex-col items-center justify-center fade-enter border border-white/10 relative">
-                    <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest">Parliament Composition</h2>
+                    <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest">Seat Distribution</h2>
                     <div style="width: 600px; height: 600px;">
                         <canvas id="seatsChart"></canvas>
                     </div>
                 </div>`;
-            
-            // Init Chart.js
             const ctx = document.getElementById('seatsChart').getContext('2d');
             chartInstance = new Chart(ctx, {
                 type: 'doughnut',
@@ -318,7 +447,7 @@
                         data: sorted.map(p => p.zone + p.list),
                         backgroundColor: sorted.map(p => p.color),
                         borderWidth: 0,
-                        hoverOffset: 20
+                        hoverOffset: 10
                     }]
                 },
                 options: {
@@ -326,8 +455,8 @@
                     maintainAspectRatio: false,
                     cutout: '60%',
                     plugins: {
-                        legend: { position: 'bottom', labels: { color: 'white', font: { size: 16, family:'Anuphan' }, padding: 20 } },
-                        datalabels: { color: '#fff', font: { weight: 'bold', size: 20 }, formatter: (value) => value > 0 ? value : '' }
+                        legend: { position: 'bottom', labels: { color: 'white', font: { size: 14, family:'Anuphan' }, padding: 20 } },
+                        datalabels: { color: '#fff', font: { weight: 'bold', size: 18 }, formatter: (v) => v > 0 ? v : '' }
                     },
                     animation: { animateScale: true }
                 },
@@ -335,61 +464,25 @@
             });
         }
 
-        // 🟢 SCENE 3: PARLIAMENT (DOTS)
-        else if(data.scene === 'parliament') {
-            let dotsHtml = '';
-            let idx = 0;
-            let colorMap = []; sorted.forEach(p=>{ for(let i=0;i<p.zone+p.list;i++) colorMap.push(p.color); });
-
-            // Generate Semicircle Dots
-            for(let r=0; r<12; r++) {
-                const radius = 35 + (r * 4.5);
-                const count = Math.floor(18 + r * 5); 
-                const step = 180/(count-1);
-                for(let a=0; a<count; a++) {
-                    if(idx>=500) break;
-                    const rad = (180-(a*step))*(Math.PI/180);
-                    // Use CSS Variable for Color to allow updates if needed, but simple re-render is fine for dots
-                    const c = colorMap[idx] || '#334155';
-                    dotsHtml += `<div class="absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm transition-colors duration-500" style="left:${50+radius*Math.cos(rad)}%; top:${90-radius*Math.sin(rad)}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
-                    idx++;
-                }
-            }
-
-            container.innerHTML = `
-                <div class="relative w-[1100px] aspect-[2/1] fade-enter">
-                    ${dotsHtml}
-                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center glass-panel px-16 py-8 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl mb-6">
-                        <div class="text-xs text-slate-400 uppercase tracking-widest mb-2">Current Leader</div>
-                        <h1 class="text-6xl font-bold text-white mb-2 drop-shadow-lg">${sorted[0].name}</h1>
-                        <div class="text-9xl font-tech font-bold" style="color:${sorted[0].color}">${sorted[0].zone + sorted[0].list}</div>
-                    </div>
-                </div>`;
-        }
-
-        // 🟢 SCENE 4: WINNER
+        // 5. WINNER
         else if(data.scene === 'winner') {
             const w = sorted[0];
-            const t = w.zone + w.list;
             container.innerHTML = `
                 <div class="text-center relative z-10 fade-enter">
                     <div class="absolute inset-0 bg-${w.color} blur-[150px] opacity-20 z-0 animate-pulse"></div>
-                    <div class="glass-panel p-20 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/60 backdrop-blur-2xl">
-                        <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">👑</div>
-                        <div class="text-2xl font-bold text-slate-300 tracking-[0.6em] mb-4 uppercase">Projected Winner</div>
+                    <div class="glass-panel p-20 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/80 backdrop-blur-2xl">
+                        <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">🎉</div>
+                        <div class="text-xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">Unofficial Winner</div>
                         <h1 class="text-9xl font-bold text-white mb-8 drop-shadow-2xl">${w.name}</h1>
-                        <div class="flex gap-8 justify-center">
-                            <div class="bg-white/5 px-8 py-4 rounded-xl border border-white/10">
-                                <div class="text-xs uppercase text-slate-400">Total Seats</div>
-                                <div class="text-7xl font-tech font-bold text-white">${t}</div>
-                            </div>
+                        <div class="inline-block bg-white/5 px-10 py-4 rounded-full border border-white/10">
+                            <span class="text-4xl font-tech font-bold text-white">SEATS: </span>
+                            <span class="text-7xl font-tech font-bold ml-4 glow-num" style="color:${w.color}">${w.zone + w.list}</span>
                         </div>
                     </div>
                 </div>`;
         }
     }
 
-    // ฟังก์ชันนี้เรียกถี่ๆ เพื่ออัพเดทแค่ตัวเลข (ไม่ทำลายโครงสร้าง)
     function updateSceneValues(data) {
         if(data.scene === 'dashboard') {
             data.parties.forEach(p => {
@@ -397,22 +490,33 @@
                 animateNum(`val-zone-${p.id}`, p.zone);
                 animateNum(`val-list-${p.id}`, p.list);
                 animateNum(`val-total-${p.id}`, t);
-                
                 const bar = document.getElementById(`bar-${p.id}`);
                 if(bar) bar.style.width = `${(t/500)*100}%`;
             });
         }
+        else if(data.scene === 'majority') {
+            data.parties.forEach(p => {
+                const t = p.zone + p.list;
+                const stack = document.getElementById(`stack-${p.id}`);
+                if(stack) stack.style.width = `${(t/500)*100}%`;
+                animateNum(`maj-val-${p.id}`, t);
+            });
+        }
+        else if(data.scene === 'cards') {
+            data.parties.forEach(p => {
+                const t = p.zone + p.list;
+                animateNum(`card-val-${p.id}`, t);
+                animateNum(`card-zone-${p.id}`, p.zone);
+                animateNum(`card-list-${p.id}`, p.list);
+            });
+        }
         else if(data.scene === 'chart' && chartInstance) {
-            // Update Chart Data Non-Destructively
             const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
             chartInstance.data.datasets[0].data = sorted.map(p => p.zone + p.list);
             chartInstance.data.datasets[0].backgroundColor = sorted.map(p => p.color);
             chartInstance.data.labels = sorted.map(p => p.name);
-            chartInstance.update('none'); // Update without full animation reset
+            chartInstance.update('none');
         }
-        // Parliament & Winner scenes usually require full redraw on change or complex logic
-        // But since we re-render structure on scene change, we are fine.
-        // If data updates LIVE while in Parliament scene, we could optimize dots update here.
     }
 
     function animateNum(id, newVal) {
@@ -420,12 +524,7 @@
         if(!el) return;
         const oldVal = parseInt(el.innerText) || 0;
         if(oldVal !== newVal) {
-            gsap.to(el, {
-                innerHTML: newVal,
-                duration: 0.5,
-                snap: { innerHTML: 1 },
-                ease: "power1.out"
-            });
+            gsap.to(el, { innerHTML: newVal, duration: 0.8, snap: { innerHTML: 1 }, ease: "power2.out" });
         }
     }
 </script>
