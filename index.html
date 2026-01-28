@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 STABLE BROADCAST</title>
+    <title>PO1 RESCUE SYSTEM</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -19,8 +19,8 @@
         /* UI Components */
         .glass-panel { 
             background: var(--glass); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            border: 1px solid rgba(255,255,255,0.15); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
             backdrop-filter: blur(10px);
         }
         
@@ -28,7 +28,7 @@
         .lower-third-container {
             background: linear-gradient(90deg, rgba(15,23,42,1) 0%, rgba(30,41,59,0.95) 100%);
             border-top: 4px solid var(--neon);
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
         }
 
         /* Animations */
@@ -47,7 +47,7 @@
         body.transparent .bg-main { background: transparent !important; }
         body.transparent .obs-hide { display: none !important; }
         
-        body.gray-screen .bg-main { background: #808080 !important; } /* สีเทา 100% สำหรับเจาะ */
+        body.gray-screen .bg-main { background: #808080 !important; }
         body.gray-screen .obs-hide { display: none !important; }
     </style>
 </head>
@@ -57,9 +57,9 @@
 
 <script>
     // ==========================================
-    // 1. CONFIGURATION
+    // 1. CONFIGURATION (RESCUE MODE)
     // ==========================================
-    const STORAGE_KEY = 'PO1_STABLE_V2';
+    const STORAGE_KEY = 'PO1_RESCUE_DB'; // เปลี่ยน Key เพื่อบังคับสร้างข้อมูลใหม่
     const LIMITS = { zone: 400, list: 100 };
 
     const DEFAULT_DATA = {
@@ -71,8 +71,8 @@
             { id: 'p5', name: 'ประชาธิปัตย์', color: '#00AEF0', zone: 10, list: 2 }
         ],
         scene: 'lower3', // Default scene
-        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดสถานการณ์ล่าสุด...',
-        bg: 'dark' // dark, gray, transparent
+        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : ข้อมูลล่าสุด...',
+        bg: 'dark' 
     };
 
     function loadState() {
@@ -96,6 +96,7 @@
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode');
 
+    // ถ้าเปิดมาเฉยๆ ให้แสดงเมนู
     if (!mode) renderMenu();
     else if (mode === 'control') initControl();
     else if (mode === 'onair') initOnAir();
@@ -107,8 +108,8 @@
         app.innerHTML = `
             <div class="h-screen w-screen flex items-center justify-center bg-slate-900">
                 <div class="bg-slate-800 p-12 rounded-2xl text-center max-w-2xl w-full border border-slate-700 shadow-2xl">
-                    <h1 class="text-6xl font-tech font-bold text-white mb-2">PO1 <span class="text-blue-500">STABLE</span></h1>
-                    <p class="text-slate-400 mb-10 text-sm uppercase tracking-widest">Broadcast System (No-Flash Edition)</p>
+                    <h1 class="text-6xl font-tech font-bold text-white mb-2">PO1 <span class="text-green-500">RESCUE</span></h1>
+                    <p class="text-slate-400 mb-10 text-sm uppercase tracking-widest">Fixed Version</p>
                     <div class="grid grid-cols-2 gap-6">
                         <button onclick="location.href='?mode=control'" class="h-32 bg-blue-900/50 border border-blue-500 rounded-xl hover:bg-blue-800 transition flex flex-col items-center justify-center">
                             <span class="text-4xl mb-2">🎛️</span>
@@ -427,7 +428,7 @@
                     const x = 50 + (radius * Math.cos(angle));
                     const y = 90 - (radius * Math.sin(angle));
                     const c = seatColors[idx] || '#1e293b';
-                    dotsHtml += `<div class="dot-seat absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm" style="left:${x}%; top:${y}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
+                    dotsHtml += `<div id="seat-${idx}" class="dot-seat absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm" style="left:${x}%; top:${y}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
                     idx++;
                 }
             }
