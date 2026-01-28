@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 RESCUE SYSTEM</title>
+    <title>PO1 RESCUE FINAL</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -16,7 +16,7 @@
         body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-dark); color: white; overflow: hidden; }
         .font-tech { font-family: 'Chakra Petch', sans-serif; }
         
-        /* UI Components */
+        /* Glass Panel */
         .glass-panel { 
             background: var(--glass); 
             border: 1px solid rgba(255,255,255,0.15); 
@@ -24,7 +24,7 @@
             backdrop-filter: blur(10px);
         }
         
-        /* LOWER THIRD SPECIFIC */
+        /* Lower Third */
         .lower-third-container {
             background: linear-gradient(90deg, rgba(15,23,42,1) 0%, rgba(30,41,59,0.95) 100%);
             border-top: 4px solid var(--neon);
@@ -46,9 +46,11 @@
         /* Background Modes */
         body.transparent .bg-main { background: transparent !important; }
         body.transparent .obs-hide { display: none !important; }
+        body.transparent .scene-bg { display: none !important; }
         
         body.gray-screen .bg-main { background: #808080 !important; }
         body.gray-screen .obs-hide { display: none !important; }
+        body.gray-screen .scene-bg { display: none !important; }
     </style>
 </head>
 <body>
@@ -57,9 +59,9 @@
 
 <script>
     // ==========================================
-    // 1. CONFIGURATION (RESCUE MODE)
+    // 1. CONFIGURATION & DATA
     // ==========================================
-    const STORAGE_KEY = 'PO1_RESCUE_DB'; // เปลี่ยน Key เพื่อบังคับสร้างข้อมูลใหม่
+    const STORAGE_KEY = 'PO1_RESCUE_FINAL_V1'; // New Key to force reset
     const LIMITS = { zone: 400, list: 100 };
 
     const DEFAULT_DATA = {
@@ -70,8 +72,8 @@
             { id: 'p4', name: 'รทสช.', color: '#2C3E50', zone: 20, list: 5 },
             { id: 'p5', name: 'ประชาธิปัตย์', color: '#00AEF0', zone: 10, list: 2 }
         ],
-        scene: 'lower3', // Default scene
-        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : ข้อมูลล่าสุด...',
+        scene: 'lower3', // Default scene MUST be valid
+        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดสถานการณ์ล่าสุด...',
         bg: 'dark' 
     };
 
@@ -96,28 +98,27 @@
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode');
 
-    // ถ้าเปิดมาเฉยๆ ให้แสดงเมนู
     if (!mode) renderMenu();
     else if (mode === 'control') initControl();
     else if (mode === 'onair') initOnAir();
 
     // ==========================================
-    // 3. MENU
+    // 3. MENU SCREEN
     // ==========================================
     function renderMenu() {
         app.innerHTML = `
             <div class="h-screen w-screen flex items-center justify-center bg-slate-900">
                 <div class="bg-slate-800 p-12 rounded-2xl text-center max-w-2xl w-full border border-slate-700 shadow-2xl">
                     <h1 class="text-6xl font-tech font-bold text-white mb-2">PO1 <span class="text-green-500">RESCUE</span></h1>
-                    <p class="text-slate-400 mb-10 text-sm uppercase tracking-widest">Fixed Version</p>
+                    <p class="text-slate-400 mb-10 text-sm uppercase tracking-widest">Final Stable Version</p>
                     <div class="grid grid-cols-2 gap-6">
                         <button onclick="location.href='?mode=control'" class="h-32 bg-blue-900/50 border border-blue-500 rounded-xl hover:bg-blue-800 transition flex flex-col items-center justify-center">
                             <span class="text-4xl mb-2">🎛️</span>
-                            <span class="font-bold text-white">CONTROL</span>
+                            <span class="font-bold text-white">CONTROL ROOM</span>
                         </button>
                         <button onclick="location.href='?mode=onair'" class="h-32 bg-red-900/50 border border-red-500 rounded-xl hover:bg-red-800 transition flex flex-col items-center justify-center">
                             <span class="text-4xl mb-2">📺</span>
-                            <span class="font-bold text-white">ON-AIR</span>
+                            <span class="font-bold text-white">ON-AIR SCREEN</span>
                         </button>
                     </div>
                 </div>
@@ -256,7 +257,7 @@
     }
 
     // ==========================================
-    // 5. ON-AIR DISPLAY (FIXED BLACK SCREEN)
+    // 5. ON-AIR DISPLAY (FIXED LOGIC)
     // ==========================================
     function initOnAir() {
         document.title = "ON AIR DISPLAY";
@@ -276,28 +277,27 @@
 
         let currentScene = '';
         
-        // Loop Logic (Polling)
+        // Loop Logic
         setInterval(() => {
             const newState = loadState();
             
-            // BG Handling
+            // 1. Check BG
             const view = document.getElementById('main-view');
-            document.body.className = ''; // Reset classes
+            document.body.className = ''; 
             if(newState.bg === 'transparent') document.body.classList.add('transparent');
             else if(newState.bg === 'gray') document.body.classList.add('gray-screen');
             
-            // Ticker Handling (Only if element exists)
+            // 2. Check Ticker
             const tickerEl = document.getElementById('ticker-text');
             if(tickerEl && tickerEl.innerText !== newState.ticker) tickerEl.innerText = newState.ticker;
 
-            // Scene Handling
+            // 3. Render Scene
             const stage = document.getElementById('stage');
-            // Force render if scene changed OR if stage is empty (Fixes black screen on first load)
+            // FIX: Force render if stage is empty (Fixes Black Screen)
             if (newState.scene !== currentScene || stage.innerHTML === '') {
                 renderSceneStructure(stage, newState);
                 currentScene = newState.scene;
                 
-                // Animation
                 if(newState.scene === 'lower3') {
                     gsap.from("#lower3-bar", { y: 200, opacity: 0, duration: 0.8, ease: "power2.out" });
                 } else {
@@ -307,7 +307,7 @@
                 updateSceneValues(newState);
             }
             state = newState;
-        }, 300); // Check every 300ms
+        }, 300); // Poll every 300ms
     }
 
     // ==========================================
@@ -319,7 +319,7 @@
         const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
         const totalSeats = data.parties.reduce((s,p)=>s+p.zone+p.list,0);
 
-        // 🔴 1. LOWER THIRD (NEWS BAR)
+        // 🔴 1. LOWER THIRD (Fixed Position)
         if(data.scene === 'lower3') {
             container.innerHTML = `
                 <div class="flex-1 w-full pointer-events-none"></div>
@@ -370,7 +370,7 @@
             return;
         }
 
-        // Standard Wrapper for Full Screen Scenes
+        // Full Screen Wrapper
         const wrap = (content) => `
             <div class="absolute top-0 left-0 w-full h-24 flex justify-between items-center px-12 pt-6 z-50 obs-hide">
                 <div class="flex items-center gap-4">
