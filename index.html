@@ -3,387 +3,444 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 Election Broadcast System V2</title>
+    <title>PO1 Election System: Cloud Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script> <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Anuphan', sans-serif; overflow: hidden; }
+        body { font-family: 'Anuphan', sans-serif; overflow: hidden; background-color: #0f172a; color: white; }
         .font-display { font-family: 'Kanit', sans-serif; }
         
         /* Transparent Mode for OBS */
         body.transparent-mode { background-color: transparent !important; }
         body.transparent-mode .bg-slate-950 { background-color: transparent !important; }
-        body.transparent-mode .scanlines { display: none; }
         
+        /* Status Indicator */
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .status-online { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        .status-offline { background-color: #ef4444; }
+
         /* UI Utilities */
-        .seat-dot { transition: background-color 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-        .glass-panel { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-panel { background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255,255,255,0.1); }
+        .seat-dot { transition: all 0.5s ease-out; }
         
         /* Ticker Animation */
-        .ticker-wrap { width: 100%; overflow: hidden; background: #0f172a; border-top: 1px solid #334155; }
-        .ticker { display: inline-block; white-space: nowrap; animation: ticker 30s linear infinite; }
+        .ticker-wrap { width: 100%; overflow: hidden; }
+        .ticker { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; }
         @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
     </style>
 </head>
-<body class="bg-slate-950 text-white">
+<body>
 
-<div id="app" class="h-screen w-screen"></div>
+<div id="app" class="h-screen w-screen relative">
+    <div id="conn-status" class="fixed bottom-2 right-2 z-[9999] bg-black/50 px-2 py-1 rounded text-[10px] font-mono flex items-center gap-2 pointer-events-none">
+        <span id="status-dot" class="status-dot status-offline"></span>
+        <span id="status-text">CONNECTING...</span>
+    </div>
+</div>
 
 <script>
-    // --- 1. STATE MANAGEMENT (The Brain) ---
-    const CONFIG = {
-        channelName: 'po1_election_v2',
-        maxSeats: 500
+    // --- 1. CONFIGURATION (CLOUD SETUP) ---
+    // ใช้ Public Broker ฟรี (EMQX)
+    const MQTT_CONFIG = {
+        brokerUrl: 'wss://broker.emqx.io:8084/mqtt', 
+        topicBase: 'po1/election/v3/' // Topic หลัก
     };
 
+    // Default Data
     const DEFAULT_DATA = {
+        channelId: 'room1', // Default Room
         parties: [
-            { id: 'p1', name: 'พรรคประชาชน', color: '#FF7F00', constituency: 0, partylist: 0, coalition: false },
-            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', constituency: 0, partylist: 0, coalition: false },
-            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', constituency: 0, partylist: 0, coalition: false },
-            { id: 'p4', name: 'รวมไทยสร้างชาติ', color: '#2C3E50', constituency: 0, partylist: 0, coalition: false }
+            { id: 'p1', name: 'พรรคประชาชน', color: '#FF7F00', constituency: 100, partylist: 20, coalition: false },
+            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', constituency: 90, partylist: 15, coalition: false },
+            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', constituency: 50, partylist: 5, coalition: false },
+            { id: 'p4', name: 'รวมไทยสร้างชาติ', color: '#2C3E50', constituency: 20, partylist: 2, coalition: false }
         ],
-        scene: 'parliament', // parliament, split, coalition
-        tickerText: 'เกาะติดผลการเลือกตั้ง 2569 : รายงานสดจากศูนย์ข้อมูล PO1 Election Center...',
-        bgMode: 'dark' // dark, green, transparent
+        scene: 'parliament',
+        tickerText: 'รายงานสดผลการเลือกตั้ง 2569...',
+        bgMode: 'dark'
     };
 
-    // Initialize State from LocalStorage or Default
-    let state = JSON.parse(localStorage.getItem('po1_state_v2')) || JSON.parse(JSON.stringify(DEFAULT_DATA));
-    const bc = new BroadcastChannel(CONFIG.channelName);
+    let state = JSON.parse(localStorage.getItem('po1_state_v3')) || JSON.parse(JSON.stringify(DEFAULT_DATA));
+    let client = null;
+    let isControl = false;
 
-    // --- 2. LOGIC FUNCTIONS ---
-    
-    function saveAndBroadcast() {
-        localStorage.setItem('po1_state_v2', JSON.stringify(state));
-        bc.postMessage(state);
-        updateUI(); // Update local UI
-    }
+    // --- 2. MQTT NETWORK LOGIC (The Magic) ---
 
-    function updateParty(id, key, value) {
-        const p = state.parties.find(x => x.id === id);
-        if (p) {
-            if (key === 'constituency' || key === 'partylist') {
-                p[key] = Math.max(0, parseInt(value) || 0); // Prevent negative
-            } else {
-                p[key] = value;
-            }
-            saveAndBroadcast();
-        }
-    }
+    function initNetwork(role) {
+        const clientId = 'client-' + Math.random().toString(16).substr(2, 8);
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
 
-    function addParty() {
-        const newId = 'p' + Date.now();
-        state.parties.push({ 
-            id: newId, name: 'พรรคใหม่', color: '#888888', 
-            constituency: 0, partylist: 0, coalition: false 
+        console.log(`Connecting to Cloud as ${role}...`);
+        
+        client = mqtt.connect(MQTT_CONFIG.brokerUrl, {
+            clientId: clientId,
+            keepalive: 60,
+            clean: true,
+            reconnectPeriod: 1000,
+            connectTimeout: 30 * 1000,
         });
-        saveAndBroadcast();
+
+        client.on('connect', () => {
+            console.log('Connected to Cloud!');
+            statusDot.className = 'status-dot status-online';
+            statusText.innerText = `ONLINE: ${state.channelId.toUpperCase()}`;
+            
+            // Subscribe to our specific room
+            client.subscribe(MQTT_CONFIG.topicBase + state.channelId, (err) => {
+                if (!err) {
+                    // If we are On-Air, ask for latest data
+                    if (!isControl) {
+                        client.publish(MQTT_CONFIG.topicBase + state.channelId + '/req', 'get_sync');
+                    } else {
+                        // If Control, broadcast current state immediately
+                        broadcastState();
+                    }
+                }
+            });
+
+            // Listen for sync requests (New device joined)
+            if (isControl) {
+                client.subscribe(MQTT_CONFIG.topicBase + state.channelId + '/req');
+            }
+        });
+
+        client.on('message', (topic, message) => {
+            const msgStr = message.toString();
+            
+            // Handle Sync Request
+            if (topic.endsWith('/req') && isControl) {
+                broadcastState();
+                return;
+            }
+
+            // Handle State Update
+            try {
+                const incomingState = JSON.parse(msgStr);
+                // On-Air accepts all updates. Control only accepts if needed (usually Control is the source of truth)
+                if (!isControl) {
+                    state = incomingState;
+                    if(window.drawOnAir) window.drawOnAir();
+                }
+            } catch (e) { console.error('Parse error', e); }
+        });
+
+        client.on('offline', () => {
+            statusDot.className = 'status-dot status-offline';
+            statusText.innerText = 'OFFLINE (RETRYING)';
+        });
     }
 
-    function removeParty(id) {
-        if(confirm('ยืนยันลบพรรคนี้?')) {
-            state.parties = state.parties.filter(p => p.id !== id);
-            saveAndBroadcast();
-        }
+    function broadcastState() {
+        if (!client || !client.connected) return;
+        // Save local
+        localStorage.setItem('po1_state_v3', JSON.stringify(state));
+        // Send to cloud
+        client.publish(MQTT_CONFIG.topicBase + state.channelId, JSON.stringify(state), { retain: true });
     }
 
-    function setScene(sceneName) {
-        state.scene = sceneName;
-        saveAndBroadcast();
-    }
-
-    function setBgMode(mode) {
-        state.bgMode = mode;
-        saveAndBroadcast();
-    }
-
-    // --- 3. ROUTER & RENDERER ---
+    // --- 3. PAGE ROUTING ---
 
     const app = document.getElementById('app');
     const urlParams = new URLSearchParams(window.location.search);
     const page = urlParams.get('page');
 
     if (!page) renderLanding();
-    else if (page === 'control') renderControl();
-    else if (page === 'onair') renderOnAir();
+    else if (page === 'control') { isControl = true; renderControl(); initNetwork('control'); }
+    else if (page === 'onair') { isControl = false; renderOnAir(); initNetwork('onair'); }
 
-    // --- LANDING PAGE ---
+    // --- 4. UI RENDERERS ---
+
     function renderLanding() {
         app.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full space-y-8 bg-slate-900">
-                <h1 class="text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PO1 SYSTEM V2.0</h1>
-                <div class="grid grid-cols-2 gap-6">
-                    <a href="?page=control" class="p-8 bg-slate-800 rounded-xl border border-slate-700 hover:border-orange-500 transition text-center group">
-                        <div class="text-4xl mb-2">🎛️</div>
-                        <div class="font-bold text-xl group-hover:text-orange-400">Control Room</div>
-                        <div class="text-xs text-slate-500 mt-2">สำหรับทีมงานคีย์ข้อมูล</div>
-                    </a>
-                    <a href="?page=onair" class="p-8 bg-slate-800 rounded-xl border border-slate-700 hover:border-red-500 transition text-center group">
-                        <div class="text-4xl mb-2">📺</div>
-                        <div class="font-bold text-xl group-hover:text-red-400">On-Air Output</div>
-                        <div class="text-xs text-slate-500 mt-2">สำหรับส่งสัญญาณภาพ (OBS/vMix)</div>
-                    </a>
+            <div class="flex flex-col items-center justify-center h-full space-y-8 bg-slate-900 p-4">
+                <div class="text-center">
+                    <h1 class="text-4xl md:text-6xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 mb-2">PO1 ELECTION V3</h1>
+                    <p class="text-slate-400">Cloud Sync Edition • ควบคุมข้ามเครื่องได้ทันที</p>
+                </div>
+
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 w-full max-w-md shadow-2xl">
+                    <label class="text-xs font-bold text-slate-500 uppercase">STEP 1: ตั้งชื่อห้อง (Room ID)</label>
+                    <input type="text" id="roomInput" value="${state.channelId}" class="w-full bg-slate-900 border border-slate-600 rounded p-3 mt-1 text-white font-mono text-center text-lg mb-4 focus:border-blue-500 outline-none" placeholder="เช่น election2026">
+                    <p class="text-xs text-slate-500 mb-6 text-center">*ต้องใช้ชื่อห้องเดียวกันทั้ง 2 เครื่องถึงจะเชื่อมกันติด</p>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="goTo('control')" class="bg-blue-600 hover:bg-blue-500 py-4 rounded-lg font-bold flex flex-col items-center gap-1 transition">
+                            <span class="text-2xl">📱</span>
+                            <span>เข้าหน้าควบคุม</span>
+                            <span class="text-[10px] opacity-70">Control (มือถือ/PC)</span>
+                        </button>
+                        <button onclick="goTo('onair')" class="bg-red-600 hover:bg-red-500 py-4 rounded-lg font-bold flex flex-col items-center gap-1 transition">
+                            <span class="text-2xl">📺</span>
+                            <span>จอแสดงผล</span>
+                            <span class="text-[10px] opacity-70">Display (OBS)</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
     }
+
+    window.goTo = (mode) => {
+        const room = document.getElementById('roomInput').value || 'room1';
+        state.channelId = room;
+        localStorage.setItem('po1_state_v3', JSON.stringify(state));
+        window.location.href = `?page=${mode}`;
+    };
 
     // --- CONTROL PAGE ---
     function renderControl() {
-        document.title = "Control Room";
+        document.title = "Control - " + state.channelId;
         
-        window.updateUI = () => {
-            const totalUsed = state.parties.reduce((sum, p) => sum + p.constituency + p.partylist, 0);
-            
-            // Generate Party Rows
-            const partyRows = state.parties.map(p => `
-                <div class="bg-slate-800 p-3 rounded flex items-center gap-3 border-l-4" style="border-color:${p.color}">
-                    <input type="color" value="${p.color}" onchange="updateParty('${p.id}', 'color', this.value)" class="w-8 h-8 rounded bg-transparent border-0 cursor-pointer">
-                    <input type="text" value="${p.name}" onchange="updateParty('${p.id}', 'name', this.value)" class="bg-transparent font-bold flex-1 focus:outline-none text-lg">
-                    
-                    <div class="flex items-center gap-2">
-                        <div class="flex flex-col items-center bg-slate-900 p-1 rounded">
-                            <span class="text-[10px] text-slate-400">เขต</span>
-                            <input type="number" value="${p.constituency}" onfocus="this.select()" oninput="updateParty('${p.id}', 'constituency', this.value)" class="w-16 bg-transparent text-center font-mono font-bold text-yellow-400 focus:outline-none">
-                        </div>
-                        <div class="flex flex-col items-center bg-slate-900 p-1 rounded">
-                            <span class="text-[10px] text-slate-400">ปาร์ตี้ลิสต์</span>
-                            <input type="number" value="${p.partylist}" onfocus="this.select()" oninput="updateParty('${p.id}', 'partylist', this.value)" class="w-16 bg-transparent text-center font-mono font-bold text-blue-400 focus:outline-none">
-                        </div>
-                    </div>
-
-                    <button onclick="updateParty('${p.id}', 'coalition', ${!p.coalition})" class="px-3 py-2 rounded text-xs font-bold ${p.coalition ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400'}">
-                        ${p.coalition ? 'GOV' : 'OPP'}
-                    </button>
-                    <button onclick="removeParty('${p.id}')" class="text-slate-600 hover:text-red-500">×</button>
-                </div>
-            `).join('');
-
-            app.innerHTML = `
-                <div class="flex h-full text-sm">
-                    <div class="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-4">
-                        <div class="mb-4">
-                            <h2 class="text-slate-400 text-xs font-bold uppercase mb-2">SCENES</h2>
-                            <div class="grid gap-2">
-                                <button onclick="setScene('parliament')" class="p-3 text-left rounded border ${state.scene === 'parliament' ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-700'}">🏛️ Parliament</button>
-                                <button onclick="setScene('split')" class="p-3 text-left rounded border ${state.scene === 'split' ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-700'}">📊 Split View</button>
-                                <button onclick="setScene('coalition')" class="p-3 text-left rounded border ${state.scene === 'coalition' ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-700'}">🤝 Coalition</button>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                             <h2 class="text-slate-400 text-xs font-bold uppercase mb-2">BG MODE (OBS)</h2>
-                             <select onchange="setBgMode(this.value)" class="w-full bg-slate-800 border border-slate-700 p-2 rounded">
-                                <option value="dark" ${state.bgMode==='dark'?'selected':''}>Standard Dark</option>
-                                <option value="green" ${state.bgMode==='green'?'selected':''}>Green Screen</option>
-                                <option value="transparent" ${state.bgMode==='transparent'?'selected':''}>Transparent (WebSource)</option>
-                             </select>
-                        </div>
-
-                        <div>
-                            <h2 class="text-slate-400 text-xs font-bold uppercase mb-2">TICKER TEXT</h2>
-                            <textarea onchange="state.tickerText = this.value; saveAndBroadcast();" class="w-full h-24 bg-slate-800 border-slate-700 rounded p-2 text-xs">${state.tickerText}</textarea>
-                        </div>
-                    </div>
-
-                    <div class="flex-1 bg-slate-800 p-6 overflow-y-auto">
-                        <div class="flex justify-between items-center mb-6">
-                            <h1 class="text-xl font-bold font-display">Party Manager</h1>
-                            <div class="flex items-center gap-4">
-                                <span class="text-slate-400">Total Seats:</span>
-                                <span class="text-2xl font-mono font-bold ${totalUsed > 500 ? 'text-red-500 animate-pulse' : 'text-green-400'}">${totalUsed} / 500</span>
-                                <button onclick="addParty()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded font-bold">+ Add Party</button>
-                            </div>
-                        </div>
-                        <div class="grid gap-2 max-w-3xl mx-auto">
-                            ${partyRows}
-                        </div>
-                    </div>
-                </div>
-            `;
+        window.updateField = (id, key, val) => {
+            const p = state.parties.find(x => x.id === id);
+            if (p) {
+                if(key === 'constituency' || key === 'partylist') p[key] = parseInt(val) || 0;
+                else p[key] = val;
+                renderPartyList();
+                broadcastState();
+            }
         };
-        updateUI();
-    }
 
-    // --- ON-AIR PAGE ---
-    function renderOnAir() {
-        document.title = "ON-AIR";
+        window.toggleCoalition = (id) => {
+            const p = state.parties.find(x => x.id === id);
+            p.coalition = !p.coalition;
+            renderPartyList();
+            broadcastState();
+        };
+
+        window.setScene = (s) => { state.scene = s; broadcastState(); updateControlUI(); };
+        window.setBg = (m) => { state.bgMode = m; broadcastState(); };
         
-        // Setup initial structure
+        // Template
         app.innerHTML = `
-            <div id="viz-wrapper" class="relative w-full h-full flex flex-col transition-colors duration-500">
-                <div class="flex-1 flex items-center justify-center relative p-10" id="viz-container"></div>
-                
-                <div class="h-12 bg-slate-900 border-t border-slate-700 flex items-center z-50 shadow-lg" id="ticker-bar">
-                    <div class="bg-red-600 text-white px-4 h-full flex items-center font-bold text-sm tracking-widest shrink-0">BREAKING</div>
-                    <div class="ticker-wrap">
-                        <div class="ticker font-display text-lg px-4" id="ticker-content">Loading...</div>
+            <div class="flex flex-col h-full bg-slate-900 text-sm md:text-base">
+                <div class="bg-slate-950 p-4 border-b border-slate-800 flex justify-between items-center">
+                    <div class="font-bold text-slate-400">ROOM: <span class="text-white font-mono">${state.channelId}</span></div>
+                    <div class="flex gap-2">
+                        <button onclick="if(confirm('Reset Data?')) { state.parties.forEach(p=>{p.constituency=0;p.partylist=0;}); broadcastState(); renderPartyList(); }" class="px-3 py-1 bg-red-900/50 text-red-400 rounded text-xs border border-red-900">RESET SCORES</button>
+                    </div>
+                </div>
+
+                <div class="flex-1 flex overflow-hidden">
+                    <div class="w-20 md:w-48 bg-slate-950 p-2 md:p-4 flex flex-col gap-2 border-r border-slate-800">
+                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">SCENES</div>
+                        ${['parliament', 'split', 'coalition'].map(s => `
+                            <button id="btn-${s}" onclick="setScene('${s}')" class="p-3 rounded border text-left transition capitalize ${state.scene===s?'bg-blue-600 border-blue-400 text-white':'bg-slate-800 border-slate-700 text-slate-400'}">
+                                ${s}
+                            </button>
+                        `).join('')}
+
+                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-4 mb-1">BG MODE</div>
+                        <select onchange="setBg(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-xs">
+                            <option value="dark">Dark Standard</option>
+                            <option value="transparent">Transparent (OBS)</option>
+                            <option value="green">Green Screen</option>
+                        </select>
+                        
+                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-4 mb-1">TICKER</div>
+                        <textarea onchange="state.tickerText=this.value; broadcastState();" class="w-full h-20 bg-slate-800 border border-slate-700 rounded p-1 text-xs resize-none">${state.tickerText}</textarea>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-900">
+                         <div id="party-list" class="space-y-2 max-w-4xl mx-auto"></div>
+                         <button onclick="addParty()" class="mt-4 w-full py-3 bg-slate-800 border border-dashed border-slate-600 text-slate-400 rounded hover:bg-slate-700">+ Add Party</button>
                     </div>
                 </div>
             </div>
         `;
 
-        const container = document.getElementById('viz-container');
-        const wrapper = document.getElementById('viz-wrapper');
-        const tickerContent = document.getElementById('ticker-content');
-        const tickerBar = document.getElementById('ticker-bar');
+        window.addParty = () => {
+            state.parties.push({ id:'p'+Date.now(), name:'New Party', color:'#999', constituency:0, partylist:0, coalition:false });
+            renderPartyList();
+            broadcastState();
+        }
 
-        // Logic to draw scenes
-        window.drawOnAir = () => {
-            // Background Handling
-            if(state.bgMode === 'transparent') {
-                document.body.classList.add('transparent-mode');
-                wrapper.classList.remove('bg-slate-950', 'bg-green-600');
-                tickerBar.classList.add('bg-slate-900'); // Ticker stays solid
-            } else if (state.bgMode === 'green') {
-                document.body.classList.remove('transparent-mode');
-                wrapper.className = "relative w-full h-full flex flex-col bg-green-600";
-            } else {
-                document.body.classList.remove('transparent-mode');
-                wrapper.className = "relative w-full h-full flex flex-col bg-slate-950";
+        window.removeParty = (id) => {
+            if(confirm('Remove party?')) {
+                state.parties = state.parties.filter(p=>p.id!==id);
+                renderPartyList();
+                broadcastState();
             }
+        }
 
-            // Update Ticker
-            tickerContent.innerText = state.tickerText;
-
-            // Render Scenes
-            container.innerHTML = '';
-            const sortedParties = [...state.parties].sort((a,b) => (b.constituency+b.partylist) - (a.constituency+a.partylist));
-
-            if(state.scene === 'parliament') {
-                renderParliament(container, sortedParties);
-            } else if (state.scene === 'split') {
-                renderSplit(container, sortedParties);
-            } else if (state.scene === 'coalition') {
-                renderCoalition(container, state.parties);
-            }
-        };
-
-        bc.onmessage = (e) => { state = e.data; window.drawOnAir(); };
-        window.drawOnAir();
+        renderPartyList();
+        updateControlUI();
     }
 
-    // --- VISUALIZERS ---
+    function renderPartyList() {
+        const container = document.getElementById('party-list');
+        if(!container) return;
+        
+        // Sort by total seats
+        const sorted = [...state.parties].sort((a,b) => (b.constituency+b.partylist) - (a.constituency+a.partylist));
 
-    function renderParliament(container, parties) {
-        // Prepare Seat Map
-        let dots = [];
-        const totalSeats = 500;
-        let seatIdx = 0;
-        
-        // Generate Color Array
-        let colorMap = [];
-        parties.forEach(p => {
-            for(let i=0; i < (p.constituency + p.partylist); i++) colorMap.push(p.color);
+        container.innerHTML = sorted.map(p => `
+            <div class="bg-slate-800 p-3 rounded-lg border-l-4 shadow flex flex-col md:flex-row items-center gap-3" style="border-color:${p.color}">
+                <div class="flex items-center gap-2 w-full md:w-auto flex-1">
+                    <input type="color" value="${p.color}" onchange="updateField('${p.id}', 'color', this.value)" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none">
+                    <input type="text" value="${p.name}" onchange="updateField('${p.id}', 'name', this.value)" class="bg-transparent font-bold text-lg w-full focus:outline-none focus:border-b border-slate-500">
+                </div>
+
+                <div class="flex gap-4">
+                    <div class="bg-slate-950 p-2 rounded border border-slate-700 flex flex-col items-center w-20">
+                        <span class="text-[10px] text-slate-500">ZONE</span>
+                        <input type="number" value="${p.constituency}" onchange="updateField('${p.id}', 'constituency', this.value)" class="w-full bg-transparent text-center font-mono font-bold text-xl focus:outline-none">
+                    </div>
+                    <div class="bg-slate-950 p-2 rounded border border-slate-700 flex flex-col items-center w-20">
+                        <span class="text-[10px] text-slate-500">LIST</span>
+                        <input type="number" value="${p.partylist}" onchange="updateField('${p.id}', 'partylist', this.value)" class="w-full bg-transparent text-center font-mono font-bold text-xl focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex gap-2 w-full md:w-auto justify-end">
+                    <button onclick="toggleCoalition('${p.id}')" class="px-4 py-2 rounded text-xs font-bold transition w-20 ${p.coalition ? 'bg-green-600 text-white shadow-[0_0_10px_rgba(22,163,74,0.5)]' : 'bg-slate-700 text-slate-400'}">
+                        ${p.coalition ? 'GOV' : 'OPP'}
+                    </button>
+                    <button onclick="removeParty('${p.id}')" class="text-slate-600 hover:text-red-500 px-2">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function updateControlUI() {
+        ['parliament', 'split', 'coalition'].forEach(s => {
+            const btn = document.getElementById(`btn-${s}`);
+            if(btn) {
+                if(state.scene === s) btn.className = "p-3 rounded border text-left transition capitalize bg-blue-600 border-blue-400 text-white shadow-lg";
+                else btn.className = "p-3 rounded border text-left transition capitalize bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700";
+            }
         });
-        
-        // Parliament Logic (Arch)
-        const rows = 12; 
-        const baseRadius = 30; // % of height
-        for(let r=0; r<rows; r++) {
-            const radius = baseRadius + (r * 5);
-            const count = Math.floor(15 + r * 5.5); // Approximate standard layout
-            const step = 180 / (count - 1);
+    }
+
+    // --- ON-AIR DISPLAY ---
+    function renderOnAir() {
+        document.title = "On-Air Display";
+        app.innerHTML = `
+            <div id="viz-wrapper" class="w-full h-full flex flex-col bg-slate-950 transition-colors duration-300">
+                <div id="viz-container" class="flex-1 relative flex items-center justify-center p-8"></div>
+                <div class="h-12 bg-slate-900 border-t border-slate-700 flex items-center shrink-0 z-50 shadow-2xl relative">
+                    <div class="bg-red-600 text-white px-4 h-full flex items-center font-bold text-sm tracking-widest z-10">LIVE</div>
+                    <div class="ticker-wrap absolute left-0 w-full h-full flex items-center">
+                        <div id="ticker-text" class="ticker font-display text-lg px-4 text-slate-200"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.drawOnAir = () => {
+            const wrapper = document.getElementById('viz-wrapper');
+            const container = document.getElementById('viz-container');
+            const ticker = document.getElementById('ticker-text');
             
+            // BG Mode
+            if(state.bgMode === 'transparent') {
+                document.body.classList.add('transparent-mode');
+                wrapper.className = "w-full h-full flex flex-col bg-transparent";
+            } else if (state.bgMode === 'green') {
+                document.body.classList.remove('transparent-mode');
+                wrapper.className = "w-full h-full flex flex-col bg-green-600";
+            } else {
+                document.body.classList.remove('transparent-mode');
+                wrapper.className = "w-full h-full flex flex-col bg-slate-950";
+            }
+
+            // Ticker
+            ticker.innerText = state.tickerText;
+
+            // Scenes
+            container.innerHTML = '';
+            const sorted = [...state.parties].sort((a,b) => (b.constituency+b.partylist) - (a.constituency+a.partylist));
+            
+            if(state.scene === 'parliament') drawParliament(container, sorted);
+            else if(state.scene === 'split') drawSplit(container, sorted);
+            else if(state.scene === 'coalition') drawCoalition(container, state.parties);
+        };
+        
+        window.drawOnAir(); // Initial draw
+    }
+
+    // --- VISUALIZATION DRAWING LOGIC ---
+    function drawParliament(container, parties) {
+        let dots = [];
+        let seatIdx = 0;
+        let colorMap = [];
+        parties.forEach(p => { for(let i=0; i<(p.constituency+p.partylist); i++) colorMap.push(p.color); });
+        
+        const rows = 12;
+        const total = 500;
+        for(let r=0; r<rows; r++) {
+            const radius = 35 + (r * 4.5);
+            const count = Math.floor(18 + r * 5); 
+            const step = 180 / (count - 1);
             for(let a=0; a<count; a++) {
-                if(seatIdx >= totalSeats) break;
-                const angleRad = (180 - (a * step)) * (Math.PI / 180);
-                const x = 50 + (radius * Math.cos(angleRad)); // 50 is center X
-                const y = 90 - (radius * Math.sin(angleRad)); // 90 is bottom Y
-                
-                dots.push({ x, y, color: colorMap[seatIdx] || '#334155' });
+                if(seatIdx >= total) break;
+                const rad = (180 - (a * step)) * (Math.PI / 180);
+                dots.push({ x: 50 + radius * Math.cos(rad), y: 95 - radius * Math.sin(rad), c: colorMap[seatIdx] || '#334155' });
                 seatIdx++;
             }
         }
 
-        // Render Dots
-        let html = `<div class="relative w-[90%] h-[80%] max-w-[1200px]">`;
+        let html = `<div class="relative w-[90%] max-w-[1000px] aspect-[2/1]">`;
         dots.forEach(d => {
-            html += `<div class="seat-dot absolute w-[1.2%] pb-[1.2%] rounded-full" 
-                style="left:${d.x}%; top:${d.y}%; background-color:${d.color}; transform:translate(-50%, -50%)"></div>`;
+            html += `<div class="seat-dot absolute w-[1.2%] pb-[1.2%] rounded-full" style="left:${d.x}%; top:${d.y}%; background:${d.c}; transform:translate(-50%,-50%)"></div>`;
         });
         
-        // Center Leader
         const top = parties[0];
         if(top) {
-            html += `
-                <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center glass-panel px-8 py-4 rounded-xl">
-                    <div class="text-slate-300 text-sm uppercase mb-1">Leading Party</div>
-                    <div class="text-4xl font-display font-bold mb-1">${top.name}</div>
-                    <div class="text-5xl font-mono font-bold" style="color:${top.color}">${top.constituency + top.partylist}</div>
-                </div>`;
+            html += `<div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center mb-4 glass-panel px-8 py-4 rounded-xl backdrop-blur-md">
+                <div class="text-xs text-slate-400 uppercase tracking-widest">Leading Party</div>
+                <h1 class="text-4xl font-display font-bold text-white">${top.name}</h1>
+                <div class="text-5xl font-mono font-bold" style="color:${top.color}">${top.constituency+top.partylist}</div>
+            </div>`;
         }
         html += `</div>`;
         container.innerHTML = html;
     }
 
-    function renderSplit(container, parties) {
-        let html = `<div class="grid grid-cols-2 gap-10 w-full max-w-6xl">`;
-        
-        // Helper
-        const makeBar = (title, type, max) => `
-            <div class="glass-panel p-6 rounded-xl">
-                <h3 class="text-2xl font-display font-bold mb-4 border-b border-slate-600 pb-2">${title}</h3>
+    function drawSplit(container, parties) {
+        const makeBar = (title, max, field) => `
+            <div class="glass-panel p-6 rounded-xl w-full">
+                <h3 class="text-xl font-display font-bold mb-4 pb-2 border-b border-white/10 text-slate-300">${title}</h3>
                 <div class="space-y-3">
                     ${parties.map(p => {
-                        const val = p[type];
-                        const pct = (val / max) * 100;
-                        if(val === 0) return '';
-                        return `
-                            <div class="flex items-center gap-3">
-                                <div class="w-32 text-right font-bold truncate">${p.name}</div>
-                                <div class="flex-1 h-6 bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full transition-all duration-1000" style="width:${pct}%; background:${p.color}"></div>
-                                </div>
-                                <div class="w-10 font-mono font-bold text-right">${val}</div>
-                            </div>
-                        `;
+                        const v = p[field]; if(v===0) return '';
+                        return `<div class="flex items-center gap-3">
+                            <div class="w-32 text-right font-bold truncate text-slate-200">${p.name}</div>
+                            <div class="flex-1 h-4 bg-slate-800 rounded-full overflow-hidden"><div class="h-full transition-all duration-1000" style="width:${(v/max)*100}%; background:${p.color}"></div></div>
+                            <div class="w-10 font-mono font-bold text-right">${v}</div>
+                        </div>`
                     }).join('')}
                 </div>
             </div>`;
-
-        html += makeBar('แบ่งเขต (400)', 'constituency', 200);
-        html += makeBar('บัญชีรายชื่อ (100)', 'partylist', 50);
-        html += `</div>`;
-        container.innerHTML = html;
+        container.innerHTML = `<div class="grid grid-cols-2 gap-8 w-full max-w-6xl">${makeBar('แบ่งเขต (400)', 200, 'constituency')} ${makeBar('บัญชีรายชื่อ (100)', 50, 'partylist')}</div>`;
     }
 
-    function renderCoalition(container, parties) {
-        const gov = parties.filter(p => p.coalition);
-        const opp = parties.filter(p => !p.coalition);
-        const govTotal = gov.reduce((s,p) => s + p.constituency + p.partylist, 0);
-        const oppTotal = opp.reduce((s,p) => s + p.constituency + p.partylist, 0);
-
-        container.innerHTML = `
-            <div class="w-full max-w-5xl text-center">
-                <h2 class="text-4xl font-display font-bold mb-8">การจัดตั้งรัฐบาล</h2>
-                
-                <div class="relative h-24 bg-slate-800 rounded-full overflow-hidden border-4 border-slate-700 mb-8">
-                    <div class="absolute left-0 top-0 h-full flex items-center justify-start px-6 bg-gradient-to-r from-green-700 to-green-500 transition-all duration-700" style="width:${(govTotal/500)*100}%">
-                        <span class="text-3xl font-bold drop-shadow">GOV ${govTotal}</span>
-                    </div>
-                    
-                    <div class="absolute top-0 bottom-0 w-1 bg-white left-[50.2%] z-10 box-shadow-white"></div>
-                    <div class="absolute top-2 left-[50.2%] -translate-x-1/2 bg-white text-black px-2 rounded text-xs font-bold">251</div>
+    function drawCoalition(container, parties) {
+        const gov = parties.filter(p=>p.coalition);
+        const total = gov.reduce((a,b)=>a+b.constituency+b.partylist,0);
+        
+        container.innerHTML = `<div class="w-full max-w-4xl text-center">
+            <h2 class="text-5xl font-display font-bold mb-8 text-white drop-shadow-lg">Government Formation</h2>
+            <div class="relative h-24 bg-slate-800 rounded-full overflow-hidden border-4 border-slate-700 mb-8 shadow-2xl">
+                <div class="h-full bg-gradient-to-r from-green-700 to-emerald-500 transition-all duration-1000 flex items-center px-6" style="width:${(total/500)*100}%">
+                    <span class="text-4xl font-bold text-white drop-shadow-md whitespace-nowrap">GOV ${total}</span>
                 </div>
-
-                <div class="flex justify-center gap-4 flex-wrap">
-                    ${gov.map(p => `
-                        <div class="bg-slate-800 px-4 py-2 rounded border-t-4" style="border-color:${p.color}">
-                            <div class="font-bold">${p.name}</div>
-                            <div class="font-mono text-xl">${p.constituency + p.partylist}</div>
-                        </div>
-                    `).join('')}
-                </div>
+                <div class="absolute top-0 bottom-0 w-1 bg-white left-[50.2%] z-10 shadow-[0_0_15px_white]"></div>
+                <div class="absolute top-2 left-[50.2%] -translate-x-1/2 bg-white text-black px-2 py-0.5 rounded text-xs font-bold shadow-lg">TARGET 251</div>
             </div>
-        `;
+            <div class="flex justify-center flex-wrap gap-3">
+                ${gov.map(p=>`<div class="bg-slate-800/80 px-6 py-3 rounded-lg border-t-4 backdrop-blur-sm" style="border-color:${p.color}">
+                    <div class="font-bold text-lg">${p.name}</div>
+                    <div class="font-mono text-2xl font-bold text-slate-300">${p.constituency+p.partylist}</div>
+                </div>`).join('')}
+            </div>
+        </div>`;
     }
 
 </script>
