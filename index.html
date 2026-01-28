@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 INSTANT VIEW</title>
+    <title>PO1 MASTERPIECE BROADCAST</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -12,30 +12,40 @@
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600;700&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { --bg-dark: #020617; --accent: #3b82f6; }
+        :root { 
+            --bg-dark: #020617; 
+            --panel-bg: rgba(15, 23, 42, 0.85); 
+            --neon-blue: #3b82f6;
+            --neon-gold: #eab308;
+        }
         body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-dark); color: white; overflow: hidden; }
         .font-tech { font-family: 'Chakra Petch', sans-serif; }
         
-        /* High Visibility Panels */
+        /* --- VISUAL STYLES --- */
         .glass-panel { 
-            background: rgba(15, 23, 42, 0.95); 
-            border: 1px solid rgba(255,255,255,0.15); 
-            box-shadow: 0 0 40px rgba(0,0,0,0.5); 
+            background: var(--panel-bg); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
         }
-
-        /* Animations */
-        .slide-up { animation: slideUp 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(30px); }
+        .glow-text { text-shadow: 0 0 15px currentColor; }
+        
+        /* --- ANIMATIONS (TV FEEL) --- */
+        .slide-up-enter { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(50px); }
         @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
 
-        .bar-fill { transition: width 0.8s ease-out; }
-        .num-change { transition: color 0.2s; }
-        
-        /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; }
-        .ticker-track { display: inline-block; white-space: nowrap; padding-left: 100vw; animation: ticker 30s linear infinite; }
+        .scale-in-enter { animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; transform: scale(0.9); }
+        @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
+
+        .bar-fill { transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+        .dot-seat { transition: background-color 0.4s ease; }
+
+        /* --- TICKER --- */
+        .ticker-container { width: 100vw; overflow: hidden; white-space: nowrap; position: relative; }
+        .ticker-track { display: inline-block; white-space: nowrap; padding-left: 100vw; animation: ticker 40s linear infinite; }
         @keyframes ticker { 100% { transform: translate3d(-100%, 0, 0); } }
 
-        /* Transparent Mode */
+        /* --- OBS TRANSPARENCY --- */
         body.transparent .bg-main { background: transparent !important; }
         body.transparent .obs-hide { display: none !important; }
         body.transparent .scene-bg { display: none !important; }
@@ -47,10 +57,9 @@
 
 <script>
     // ==========================================
-    // 1. CONFIG & DEFAULT DATA
+    // 1. SYSTEM CONFIGURATION & DATABASE
     // ==========================================
-    const CHANNEL_NAME = 'PO1_LIVE_CHANNEL';
-    const STORAGE_KEY = 'PO1_INSTANT_DB';
+    const STORAGE_KEY = 'PO1_MASTER_DB';
     const LIMITS = { zone: 400, list: 100 };
 
     const DEFAULT_DATA = {
@@ -62,32 +71,22 @@
             { id: 'p5', name: 'ประชาธิปัตย์', color: '#00AEF0', zone: 10, list: 2 }
         ],
         scene: 'dashboard', 
-        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดสถานการณ์ล่าสุด...',
+        ticker: 'รายงานสดผลการเลือกตั้ง 2569 : เกาะติดสถานการณ์ล่าสุดจากศูนย์ข้อมูล...',
         bg: 'dark'
     };
 
-    // Communication Channels
-    const bc = new BroadcastChannel(CHANNEL_NAME);
-
+    // State Management
     function loadState() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_DATA));
-        } catch(e) {
-            return JSON.parse(JSON.stringify(DEFAULT_DATA));
-        }
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_DATA));
     }
-    
-    function saveState(s) { 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); 
-        bc.postMessage(s); // Send to other tabs instantly
-    }
+    function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
 
     let state = loadState();
-    let chartInstance = null;
+    let chartInstance = null; // Store chart instance to update instead of destroy
 
     // ==========================================
-    // 2. ROUTER
+    // 2. ROUTER (Control vs On-Air)
     // ==========================================
     const app = document.getElementById('app');
     const params = new URLSearchParams(window.location.search);
@@ -102,16 +101,18 @@
     // ==========================================
     function renderMenu() {
         app.innerHTML = `
-            <div class="h-screen w-screen flex items-center justify-center bg-slate-950">
-                <div class="glass-panel p-10 rounded-2xl text-center max-w-lg w-full border-t-4 border-blue-500">
-                    <h1 class="text-5xl font-tech font-bold text-white mb-2">PO1 <span class="text-blue-500">INSTANT</span></h1>
-                    <p class="text-slate-400 mb-8 tracking-widest text-sm">System Ready</p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="location.href='?mode=control'" class="py-6 bg-blue-900/50 hover:bg-blue-800 border border-blue-500 rounded-lg transition font-bold text-white">
-                            🎛️ CONTROL
+            <div class="h-screen w-screen flex items-center justify-center bg-black bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
+                <div class="glass-panel p-16 rounded-3xl text-center max-w-3xl w-full border-t-2 border-blue-500 shadow-2xl">
+                    <h1 class="text-7xl font-tech font-bold text-white mb-2 tracking-tighter">PO1 <span class="text-blue-500">MASTERPIECE</span></h1>
+                    <p class="text-slate-400 mb-12 text-sm uppercase tracking-[0.5em]">Broadcast Graphics System</p>
+                    <div class="grid grid-cols-2 gap-8">
+                        <button onclick="location.href='?mode=control'" class="group h-40 bg-slate-900/50 border border-slate-700 rounded-2xl hover:bg-blue-900/50 hover:border-blue-500 transition-all flex flex-col items-center justify-center">
+                            <span class="text-5xl mb-4 group-hover:scale-110 transition">🎛️</span>
+                            <span class="font-bold text-lg tracking-widest">CONTROL ROOM</span>
                         </button>
-                        <button onclick="location.href='?mode=onair'" class="py-6 bg-red-900/50 hover:bg-red-800 border border-red-500 rounded-lg transition font-bold text-white">
-                            📺 ON-AIR
+                        <button onclick="location.href='?mode=onair'" class="group h-40 bg-slate-900/50 border border-slate-700 rounded-2xl hover:bg-red-900/50 hover:border-red-500 transition-all flex flex-col items-center justify-center">
+                            <span class="text-5xl mb-4 group-hover:scale-110 transition">📺</span>
+                            <span class="font-bold text-lg tracking-widest">ON-AIR SCREEN</span>
                         </button>
                     </div>
                 </div>
@@ -119,10 +120,10 @@
     }
 
     // ==========================================
-    // 4. CONTROL ROOM
+    // 4. CONTROL ROOM LOGIC
     // ==========================================
     function initControl() {
-        document.title = "Control Panel";
+        document.title = "Control - PO1 Masterpiece";
         
         function renderUI() {
             const totalZone = state.parties.reduce((s, p) => s + p.zone, 0);
@@ -130,233 +131,361 @@
 
             app.innerHTML = `
                 <div class="flex h-screen bg-black text-white font-sans text-sm">
-                    <div class="w-72 glass-panel border-r border-slate-700 flex flex-col z-20">
-                        <div class="p-5 border-b border-slate-700">
-                            <h2 class="font-bold text-lg text-blue-400 tracking-wider">LIVE CONTROL</h2>
+                    <div class="w-80 glass-panel border-r border-slate-800 flex flex-col z-20">
+                        <div class="p-6 border-b border-slate-800">
+                            <h2 class="font-bold text-xl text-white tracking-wide flex items-center gap-3">
+                                <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_lime]"></span> 
+                                LIVE CONTROL
+                            </h2>
                         </div>
                         
                         <div class="p-4 space-y-2 overflow-y-auto flex-1">
-                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-1">SCENES</div>
+                            <div class="text-[10px] text-slate-500 font-bold uppercase px-2 mb-1">Select Scene</div>
                             ${[
-                                {id:'dashboard', label:'📊 Dashboard Full'},
-                                {id:'battle', label:'⚔️ Battle Gauge'},
-                                {id:'parliament', label:'🏛️ Parliament'},
-                                {id:'chart', label:'🍩 Donut Chart'},
-                                {id:'winner', label:'🏆 Winner'}
+                                {id:'dashboard', label:'📊 Dashboard', desc:'ตารางคะแนนมาตรฐาน'},
+                                {id:'lower3', label:'📺 Lower Third', desc:'แถบล่าง (ซ้อนภาพข่าว)'},
+                                {id:'battle', label:'⚔️ Battle Gauge', desc:'รัฐบาล vs ฝ่ายค้าน'},
+                                {id:'matrix', label:'🎛️ Data Matrix', desc:'ตาราง 500 จุด'},
+                                {id:'parliament', label:'🏛️ Parliament', desc:'ผังที่นั่งสภา'},
+                                {id:'chart', label:'🍩 Donut 500', desc:'กราฟวงกลม'},
+                                {id:'winner', label:'🏆 Winner', desc:'ประกาศชัยชนะ'}
                             ].map(s => `
-                                <button onclick="setScene('${s.id}')" class="w-full text-left p-3 rounded-lg border transition-all ${state.scene===s.id ? 'bg-blue-600 border-blue-400 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}">
-                                    <div class="font-bold">${s.label}</div>
+                                <button onclick="setScene('${s.id}')" class="w-full text-left p-4 rounded-xl mb-1 border transition-all ${state.scene===s.id ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800'}">
+                                    <div class="font-bold text-base flex justify-between items-center">
+                                        ${s.label}
+                                        ${state.scene===s.id ? '<span class="text-[10px] bg-white text-blue-600 px-2 rounded-full font-bold">ON AIR</span>' : ''}
+                                    </div>
+                                    <div class="text-[10px] opacity-70 mt-1">${s.desc}</div>
                                 </button>
                             `).join('')}
                         </div>
 
-                        <div class="p-4 border-t border-slate-700 bg-slate-900">
+                        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
+                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">Ticker</div>
+                            <div class="flex gap-2 mb-4">
+                                <input id="ticker-input" class="flex-1 bg-black border border-slate-700 rounded p-2 text-xs text-white" value="${state.ticker}">
+                                <button onclick="pushTicker()" class="bg-blue-600 px-4 rounded font-bold text-xs hover:bg-blue-500">SEND</button>
+                            </div>
                             <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">Background</div>
-                            <select onchange="setBg(this.value)" class="w-full bg-black border border-slate-600 rounded p-2 text-xs text-white mb-3">
+                            <select onchange="setBg(this.value)" class="w-full bg-black border border-slate-700 rounded p-2 text-xs text-white">
                                 <option value="dark" ${state.bg==='dark'?'selected':''}>Dark Theme</option>
                                 <option value="transparent" ${state.bg==='transparent'?'selected':''}>Transparent (OBS)</option>
                             </select>
-                            
-                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">Ticker</div>
-                            <div class="flex gap-2">
-                                <input id="ticker-input" class="flex-1 bg-black border border-slate-600 rounded p-2 text-xs text-white" value="${state.ticker}">
-                                <button onclick="pushTicker()" class="bg-blue-600 px-3 rounded font-bold text-xs hover:bg-blue-500">SET</button>
-                            </div>
                         </div>
                     </div>
 
-                    <div class="flex-1 p-8 overflow-y-auto bg-black">
+                    <div class="flex-1 p-8 overflow-y-auto bg-[#050505]">
                         <div class="max-w-4xl mx-auto pb-20">
-                            <div class="flex gap-4 mb-6">
-                                <div class="flex-1 bg-slate-900 border border-slate-700 p-4 rounded-xl flex justify-between items-center">
-                                    <span class="text-slate-400 text-xs font-bold uppercase">Zone Quota</span>
-                                    <span class="text-2xl font-tech font-bold ${totalZone>=LIMITS.zone?'text-red-500':'text-blue-400'}">${totalZone}/${LIMITS.zone}</span>
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+                                    <span class="text-slate-400 text-xs uppercase font-bold">Zone Usage</span>
+                                    <div class="text-2xl font-tech font-bold ${totalZone >= LIMITS.zone ? 'text-red-500' : 'text-blue-400'}">
+                                        ${totalZone} <span class="text-sm text-slate-600">/ ${LIMITS.zone}</span>
+                                    </div>
                                 </div>
-                                <div class="flex-1 bg-slate-900 border border-slate-700 p-4 rounded-xl flex justify-between items-center">
-                                    <span class="text-slate-400 text-xs font-bold uppercase">List Quota</span>
-                                    <span class="text-2xl font-tech font-bold ${totalList>=LIMITS.list?'text-red-500':'text-green-400'}">${totalList}/${LIMITS.list}</span>
+                                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
+                                    <span class="text-slate-400 text-xs uppercase font-bold">List Usage</span>
+                                    <div class="text-2xl font-tech font-bold ${totalList >= LIMITS.list ? 'text-red-500' : 'text-green-400'}">
+                                        ${totalList} <span class="text-sm text-slate-600">/ ${LIMITS.list}</span>
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="space-y-3">
                                 ${state.parties.map((p, i) => `
-                                    <div class="bg-slate-900 p-4 rounded-xl border-l-4 border-slate-700 flex items-center gap-4 hover:bg-slate-800 transition" style="border-color:${p.color}">
-                                        <div class="flex items-center gap-2 w-1/3">
-                                            <input type="color" value="${p.color}" onchange="updateVal(${i}, 'color', this.value)" class="w-8 h-8 rounded border-0 bg-transparent cursor-pointer">
-                                            <input type="text" value="${p.name}" oninput="updateVal(${i}, 'name', this.value)" class="bg-transparent font-bold text-lg w-full focus:outline-none text-white">
+                                    <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 hover:border-slate-600 transition flex items-center gap-4 group">
+                                        <div class="flex items-center gap-3 w-1/3">
+                                            <input type="color" value="${p.color}" onchange="updateVal(${i}, 'color', this.value)" class="w-10 h-10 rounded-lg border-0 bg-transparent cursor-pointer">
+                                            <input type="text" value="${p.name}" oninput="updateVal(${i}, 'name', this.value)" class="bg-transparent font-bold text-xl w-full focus:outline-none border-b border-transparent focus:border-slate-500 px-2 py-1">
                                         </div>
                                         
                                         <div class="flex-1 grid grid-cols-2 gap-4">
-                                            <div class="bg-black/30 p-1 rounded flex items-center justify-between border border-slate-700">
-                                                <button onclick="adj(${i}, 'zone', -1)" class="w-8 h-8 rounded hover:bg-red-500 text-white font-bold">-</button>
+                                            <div class="bg-black/30 p-2 rounded-lg flex items-center justify-between border border-slate-800 group-hover:border-slate-700">
+                                                <button onclick="adj(${i}, 'zone', -1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-red-500 font-bold">-</button>
                                                 <div class="text-center">
-                                                    <div class="text-[9px] text-slate-500">ZONE</div>
-                                                    <div class="font-tech text-xl font-bold text-white">${p.zone}</div>
+                                                    <div class="text-[9px] text-slate-500 uppercase">ZONE</div>
+                                                    <div class="font-tech text-2xl font-bold text-white">${p.zone}</div>
                                                 </div>
-                                                <button onclick="adj(${i}, 'zone', 1)" class="w-8 h-8 rounded hover:bg-green-500 text-white font-bold" ${totalZone>=LIMITS.zone?'disabled style="opacity:0.3"':''}>+</button>
+                                                <button onclick="adj(${i}, 'zone', 1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-green-500 font-bold" ${totalZone >= LIMITS.zone ? 'disabled opacity-30' : ''}>+</button>
                                             </div>
-                                            <div class="bg-black/30 p-1 rounded flex items-center justify-between border border-slate-700">
-                                                <button onclick="adj(${i}, 'list', -1)" class="w-8 h-8 rounded hover:bg-red-500 text-white font-bold">-</button>
+                                            <div class="bg-black/30 p-2 rounded-lg flex items-center justify-between border border-slate-800 group-hover:border-slate-700">
+                                                <button onclick="adj(${i}, 'list', -1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-red-500 font-bold">-</button>
                                                 <div class="text-center">
-                                                    <div class="text-[9px] text-slate-500">LIST</div>
-                                                    <div class="font-tech text-xl font-bold text-white">${p.list}</div>
+                                                    <div class="text-[9px] text-slate-500 uppercase">LIST</div>
+                                                    <div class="font-tech text-2xl font-bold text-white">${p.list}</div>
                                                 </div>
-                                                <button onclick="adj(${i}, 'list', 1)" class="w-8 h-8 rounded hover:bg-green-500 text-white font-bold" ${totalList>=LIMITS.list?'disabled style="opacity:0.3"':''}>+</button>
+                                                <button onclick="adj(${i}, 'list', 1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-green-500 font-bold" ${totalList >= LIMITS.list ? 'disabled opacity-30' : ''}>+</button>
                                             </div>
                                         </div>
-                                        
-                                        <button onclick="removeParty(${i})" class="w-8 h-8 rounded text-slate-500 hover:text-red-500">✕</button>
+
+                                        <button onclick="removeParty(${i})" class="w-10 h-10 rounded-lg bg-slate-900 text-slate-600 hover:text-white hover:bg-red-600 transition">✕</button>
                                     </div>
                                 `).join('')}
                             </div>
                             
-                            <button onclick="addParty()" class="w-full mt-6 py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 hover:bg-slate-900 transition font-bold">
-                                + Add Party
+                            <button onclick="addParty()" class="w-full mt-6 py-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 hover:bg-slate-900 transition font-bold flex items-center justify-center gap-2">
+                                + เพิ่มพรรคใหม่
                             </button>
                         </div>
                     </div>
                 </div>`;
         }
 
+        // --- Controller Logic ---
         window.updateVal = (i, k, v) => { state.parties[i][k] = v; saveState(state); };
-        window.addParty = () => { state.parties.push({ id: 'p'+Date.now(), name: 'New Party', color: '#888888', zone: 0, list: 0 }); saveState(state); renderUI(); };
-        window.removeParty = (i) => { if(confirm('Delete?')) { state.parties.splice(i, 1); saveState(state); renderUI(); } };
+        window.addParty = () => { state.parties.push({ id: 'p'+Date.now(), name: 'พรรคใหม่', color: '#888888', zone: 0, list: 0 }); saveState(state); renderUI(); };
+        window.removeParty = (i) => { if(confirm('ยืนยันลบ?')) { state.parties.splice(i, 1); saveState(state); renderUI(); } };
+        
         window.adj = (i, type, delta) => {
             const total = state.parties.reduce((sum, p) => sum + p[type], 0);
-            if (delta > 0 && total >= LIMITS[type]) return; 
+            const limit = LIMITS[type];
+            if (delta > 0 && total >= limit) return; // Lock limit
             state.parties[i][type] = Math.max(0, state.parties[i][type] + delta);
             saveState(state); renderUI(); 
         };
+        
         window.setScene = (s) => { state.scene = s; saveState(state); renderUI(); };
         window.setBg = (b) => { state.bg = b; saveState(state); };
-        window.pushTicker = () => { state.ticker = document.getElementById('ticker-input').value; saveState(state); alert('Ticker Updated'); };
+        window.pushTicker = () => { state.ticker = document.getElementById('ticker-input').value; saveState(state); alert('Sent to screen!'); };
 
         renderUI();
     }
 
     // ==========================================
-    // 5. ON-AIR DISPLAY
+    // 5. ON-AIR DISPLAY LOGIC
     // ==========================================
     function initOnAir() {
         document.title = "ON AIR DISPLAY";
         
-        // Initial Structure (Immediate Render)
+        // Base Layout
         app.innerHTML = `
             <div id="main-view" class="w-full h-full flex flex-col bg-main bg-black transition-colors duration-500 relative overflow-hidden">
                 <div class="scene-bg absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 pointer-events-none"></div>
+                <div class="scene-bg absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-900/10 to-transparent pointer-events-none"></div>
                 
-                <div id="stage" class="absolute inset-0 z-10 flex flex-col justify-end"></div>
+                <div id="stage" class="flex-1 relative w-full h-full z-10 flex flex-col"></div>
+
+                <div class="h-12 bg-black border-t border-slate-800 flex items-center relative z-50 shrink-0">
+                    <div class="bg-blue-600 h-full px-8 flex items-center justify-center shrink-0 z-20 shadow-[5px_0_30px_rgba(0,0,0,0.8)]">
+                        <span class="font-bold text-white tracking-widest text-sm">UPDATE</span>
+                    </div>
+                    <div class="ticker-container bg-slate-950/90 h-full flex items-center">
+                        <div id="ticker-text" class="ticker-track text-xl font-light text-slate-200">Initializing...</div>
+                    </div>
+                </div>
             </div>`;
 
-        // Force First Render Immediately (แก้จอดำ)
         let currentScene = '';
-        renderSceneStructure(document.getElementById('stage'), state);
-        currentScene = state.scene;
 
-        // Clock Loop
+        // *** SUPER POLLING LOOP (THE NO-FLASH ENGINE) ***
         setInterval(() => {
-            const timeEl = document.getElementById('clock-text');
-            if(timeEl) timeEl.innerText = new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-        }, 1000);
-
-        // Data Sync Loop (Listener + Polling)
-        const updateDisplay = (newState) => {
-            // BG
+            const newState = loadState();
+            
+            // 1. BG & Ticker Updates
             const view = document.getElementById('main-view');
             if(newState.bg === 'transparent') document.body.classList.add('transparent');
             else document.body.classList.remove('transparent');
             
-            // Ticker
             const tickerEl = document.getElementById('ticker-text');
-            if(tickerEl && tickerEl.innerText !== newState.ticker) tickerEl.innerText = newState.ticker;
+            if(tickerEl.innerText !== newState.ticker) tickerEl.innerText = newState.ticker;
 
-            // Scene Logic
+            // 2. Scene Rendering Logic
             const stage = document.getElementById('stage');
-            if (newState.scene !== currentScene || stage.innerHTML === '') {
+            if (newState.scene !== currentScene) {
+                // If scene changed: Re-render structure
                 renderSceneStructure(stage, newState);
                 currentScene = newState.scene;
-                gsap.from(".slide-up", { opacity: 0, y: 50, duration: 0.8, ease: "power2.out" });
+                
+                // Entrance Animation
+                if(newState.scene === 'lower3') {
+                    gsap.from("#lower3-panel", { y: 200, opacity: 0, duration: 0.8, ease: "power2.out" });
+                } else {
+                    gsap.from("#stage > div", { opacity: 0, y: 30, duration: 0.8, ease: "power2.out" });
+                }
             } else {
+                // If scene same: Only update numbers (No-Flash)
                 updateSceneValues(newState);
             }
             state = newState;
-        };
-
-        // 1. Listen to Broadcast Channel (Instant)
-        bc.onmessage = (ev) => updateDisplay(ev.data);
-
-        // 2. Poll LocalStorage (Backup)
-        setInterval(() => {
-            const newState = loadState();
-            if(JSON.stringify(newState) !== JSON.stringify(state)) updateDisplay(newState);
-        }, 500);
+        }, 200);
     }
 
     // ==========================================
-    // 6. VISUAL RENDERERS
+    // 6. SCENE BUILDERS (HTML Structures)
     // ==========================================
     function renderSceneStructure(container, data) {
         if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
-        
+        container.innerHTML = ''; 
         const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
-        
-        // HEADER WRAPPER
-        const wrap = (content) => `
-            <div class="absolute top-0 left-0 w-full h-24 flex justify-between items-center px-12 pt-6 z-50 obs-hide">
-                <div class="flex items-center gap-4">
+        const totalSeats = data.parties.reduce((s,p)=>s+p.zone+p.list,0);
+
+        // Standard Header (used in full screens)
+        const header = `
+            <div class="h-24 w-full flex justify-between items-center px-12 pt-6 z-50 obs-hide absolute top-0 left-0">
+                <div class="flex items-center gap-5">
                     <div class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-lg animate-pulse">LIVE</div>
-                    <div class="text-white font-bold text-3xl">ELECTION 2026</div>
+                    <div class="text-white font-bold text-3xl leading-none tracking-tighter">ELECTION <span class="text-blue-500">2026</span></div>
                 </div>
-                <div class="text-right">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase">Time</div>
-                    <div id="clock-text" class="font-tech font-bold text-3xl text-white leading-none">00:00</div>
-                </div>
-            </div>
-            
-            <div class="w-full h-full flex items-center justify-center p-12 relative slide-up">
-                ${content}
-            </div>
-            
-            <div class="absolute bottom-0 w-full h-12 bg-black border-t border-slate-800 flex items-center z-50">
-                 <div class="bg-blue-700 h-full px-6 flex items-center justify-center shrink-0 z-20"><span class="font-bold text-white text-xs">NEWS</span></div>
-                 <div class="ticker-wrap w-full bg-slate-900 h-full flex items-center"><div id="ticker-text" class="ticker-track text-xl text-slate-300">${data.ticker}</div></div>
             </div>`;
 
-        // 1. DASHBOARD
-        if(data.scene === 'dashboard') {
-            container.innerHTML = wrap(`
-                <div class="w-full max-w-7xl">
-                    <div class="grid grid-cols-1 gap-3">
-                        ${sorted.map((p, i) => `
-                        <div class="glass-panel p-5 rounded-xl flex items-center relative overflow-hidden">
-                            <div class="absolute left-0 top-0 bottom-0 w-3" style="background:${p.color}"></div>
-                            <div class="w-16 font-tech text-4xl font-bold text-slate-500 text-center mr-4">0${i+1}</div>
-                            <div class="flex-1 z-10">
-                                <h2 class="text-3xl font-bold text-white mb-2">${p.name}</h2>
-                                <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full bar-fill" style="width:${((p.zone+p.list)/500)*100}%; background:${p.color}" id="bar-${p.id}"></div>
+        // 1. LOWER THIRD (NEWS MODE)
+        if(data.scene === 'lower3') {
+            container.innerHTML = `
+                <div class="flex-1 w-full relative">
+                    <div class="absolute inset-0 pointer-events-none"></div>
+                    <div id="lower3-panel" class="absolute bottom-4 left-4 right-4 h-40 glass-panel rounded-xl flex items-center px-6 border-l-4 border-blue-500">
+                        <div class="w-32 flex flex-col justify-center border-r border-slate-700 pr-4 mr-4">
+                            <div class="text-blue-500 font-bold uppercase text-[10px]">LIVE REPORT</div>
+                            <div class="text-white font-bold text-2xl leading-none">VOTE<br>COUNT</div>
+                        </div>
+                        <div class="flex-1 flex gap-4 overflow-hidden h-full items-center py-2">
+                            ${sorted.slice(0, 5).map((p, i) => `
+                                <div class="w-48 bg-slate-800/60 rounded-lg p-3 border border-slate-700 flex flex-col justify-center h-full relative overflow-hidden">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase">Rank ${i+1}</span>
+                                    </div>
+                                    <h3 class="text-base font-bold text-white truncate w-full mb-1">${p.name}</h3>
+                                    <div class="flex items-baseline gap-2">
+                                        <span class="text-3xl font-tech font-bold text-white num-roll" id="low-val-${p.id}" style="text-shadow:0 0 10px ${p.color}">${p.zone+p.list}</span>
+                                    </div>
+                                    <div class="absolute bottom-0 left-0 h-1 bg-white/20 w-full">
+                                        <div class="h-full bg-white/50" style="width:${((p.zone+p.list)/500)*100}%"></div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="w-48 text-right pr-4">
-                                <div class="text-6xl font-tech font-bold text-white" id="val-total-${p.id}">${p.zone+p.list}</div>
-                            </div>
-                        </div>`).join('')}
+                            `).join('')}
+                        </div>
                     </div>
-                </div>
-            `);
+                </div>`;
+            return;
         }
-        
-        // 2. PARLIAMENT
+
+        // 2. DASHBOARD
+        if(data.scene === 'dashboard') {
+            container.innerHTML = `
+                ${header}
+                <div class="w-full h-full flex items-center justify-center p-12">
+                    <div class="w-full max-w-7xl slide-up-enter">
+                        <div class="grid grid-cols-1 gap-3">
+                            ${sorted.map((p, i) => `
+                            <div class="glass-panel p-5 rounded-xl flex items-center relative overflow-hidden group">
+                                <div class="absolute left-0 top-0 bottom-0 w-2" style="background:${p.color}"></div>
+                                <div class="w-16 font-tech text-4xl font-bold text-slate-600 text-center mr-4">0${i+1}</div>
+                                <div class="flex-1 z-10">
+                                    <h2 class="text-3xl font-bold text-white mb-2">${p.name}</h2>
+                                    <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bar-fill" style="width:0%; background:${p.color}" id="bar-${p.id}"></div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-8 px-8">
+                                    <div class="text-center"><div class="text-xs text-slate-500 uppercase">Zone</div><div class="text-2xl font-tech text-white" id="val-zone-${p.id}">0</div></div>
+                                    <div class="text-center"><div class="text-xs text-slate-500 uppercase">List</div><div class="text-2xl font-tech text-white" id="val-list-${p.id}">0</div></div>
+                                </div>
+                                <div class="w-40 text-right pr-4">
+                                    <div class="text-6xl font-tech font-bold text-white tracking-tighter num-roll" id="val-total-${p.id}" style="text-shadow:0 0 30px ${p.color}">0</div>
+                                </div>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // 3. BATTLE GAUGE
+        else if(data.scene === 'battle') {
+            container.innerHTML = `
+                ${header}
+                <div class="w-full h-full flex items-center justify-center p-12">
+                    <div class="w-full max-w-7xl slide-up-enter flex flex-col items-center">
+                        <h2 class="text-4xl font-bold mb-16 uppercase tracking-[0.5em] text-white/50">Coalition vs Opposition</h2>
+                        <div class="w-full h-40 bg-slate-900 rounded-full border-4 border-slate-800 relative flex overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+                            <div class="h-full bg-blue-600 flex items-center justify-start pl-8 relative transition-all duration-1000" style="width:50%" id="battle-left">
+                                <span class="text-4xl font-bold text-white drop-shadow-lg whitespace-nowrap z-10" id="battle-txt-left">Gov: 0</span>
+                                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-black/50"></div>
+                            </div>
+                            <div class="h-full bg-red-600 flex items-center justify-end pr-8 relative transition-all duration-1000" style="width:50%" id="battle-right">
+                                 <span class="text-4xl font-bold text-white drop-shadow-lg whitespace-nowrap z-10" id="battle-txt-right">Opp: 0</span>
+                                 <div class="absolute inset-0 bg-gradient-to-l from-transparent to-black/50"></div>
+                            </div>
+                            <div class="absolute top-0 bottom-0 w-2 bg-white left-1/2 -translate-x-1/2 z-20 shadow-[0_0_30px_white]"></div>
+                            <div class="absolute -top-16 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-1 rounded-full font-bold shadow-lg">TARGET 251</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // 4. DATA MATRIX
+        else if(data.scene === 'matrix') {
+            container.innerHTML = `
+                ${header}
+                <div class="w-full h-full flex items-center justify-center p-12">
+                    <div class="scale-in-enter flex flex-col items-center">
+                        <h2 class="text-2xl font-bold mb-6 text-slate-400 uppercase tracking-widest">Seat Matrix 500</h2>
+                        <div class="grid grid-cols-[repeat(25,1fr)] gap-1 p-4 bg-black border border-slate-800 rounded-lg shadow-2xl">
+                            ${Array.from({length: 500}).map((_,i) => `<div id="dot-${i}" class="w-3 h-3 bg-slate-800 rounded-sm transition-colors duration-300"></div>`).join('')}
+                        </div>
+                        <div class="mt-8 flex gap-6">
+                            ${sorted.map(p => `
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-sm" style="background:${p.color}"></div>
+                                    <span class="text-sm font-bold text-slate-300">${p.name}</span>
+                                    <span class="font-tech text-blue-400" id="mtx-val-${p.id}">0</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // 5. DONUT CHART
+        else if(data.scene === 'chart') {
+            container.innerHTML = `
+                ${header}
+                <div class="w-full h-full flex items-center justify-center p-12">
+                    <div class="glass-panel p-10 rounded-3xl flex flex-col items-center justify-center scale-in-enter relative">
+                        <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest">Parliament 500</h2>
+                        <div style="width: 600px; height: 600px;">
+                            <canvas id="seatsChart"></canvas>
+                        </div>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none pt-12">
+                             <div class="text-center">
+                                <div class="text-7xl font-tech font-bold text-white">${totalSeats}</div>
+                                <div class="text-slate-500 text-sm">Filled</div>
+                             </div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            const remaining = 500 - totalSeats;
+            const chartData = [...sorted.map(p => p.zone+p.list), remaining];
+            const chartColors = [...sorted.map(p => p.color), '#1e293b'];
+            
+            const ctx = document.getElementById('seatsChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [...sorted.map(p => p.name), 'Empty'],
+                    datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 0 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '70%',
+                    plugins: { legend: { display: false }, datalabels: { display: false } },
+                    animation: { animateScale: true }
+                }
+            });
+        }
+
+        // 6. PARLIAMENT
         else if(data.scene === 'parliament') {
             let dotsHtml = '';
             let idx = 0;
             let seatColors = [];
             sorted.forEach(p => { for(let i=0; i<p.zone+p.list; i++) seatColors.push(p.color); });
+            
             for(let r=1; r<=12; r++) {
                 const radius = 22 + (r * 3.8);
                 const arcLength = Math.PI * radius;
                 let dotsInRow = Math.floor(arcLength / 3.2);
                 if(r===12) dotsInRow = 500 - idx;
+                
                 const step = 180 / (dotsInRow + 1);
                 for(let i=0; i<dotsInRow; i++) {
                     if(idx>=500) break;
@@ -364,90 +493,60 @@
                     const x = 50 + (radius * Math.cos(angle));
                     const y = 90 - (radius * Math.sin(angle));
                     const c = seatColors[idx] || '#1e293b';
-                    dotsHtml += `<div id="seat-${idx}" class="absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm dot-seat" style="left:${x}%; top:${y}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
+                    dotsHtml += `<div id="seat-${idx}" class="dot-seat absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm" style="left:${x}%; top:${y}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
                     idx++;
                 }
             }
-            container.innerHTML = wrap(`
-                <div class="relative w-[1300px] aspect-[1.9/1]">
-                    ${dotsHtml}
-                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center mb-8 glass-panel px-10 py-6 rounded-2xl border-t-4 border-white">
-                        <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-2">Leader</div>
-                        <h1 class="text-5xl font-bold text-white mb-2">${sorted[0].name}</h1>
-                        <div class="text-7xl font-tech font-bold" style="color:${sorted[0].color}">${sorted[0].zone + sorted[0].list}</div>
-                    </div>
-                </div>
-            `);
-        }
 
-        // 3. BATTLE GAUGE
-        else if(data.scene === 'battle') {
-            container.innerHTML = wrap(`
-                <div class="w-full max-w-6xl flex flex-col items-center">
-                    <h2 class="text-4xl font-bold mb-16 uppercase tracking-[0.5em] text-white/50">Coalition vs Opposition</h2>
-                    <div class="w-full h-40 bg-slate-900 rounded-full border-4 border-slate-800 relative flex overflow-hidden shadow-2xl">
-                        <div class="h-full bg-blue-600 flex items-center justify-start pl-8 relative transition-all duration-1000" style="width:50%" id="battle-left">
-                            <span class="text-4xl font-bold text-white drop-shadow-lg z-10" id="battle-txt-left">Gov: 0</span>
+            container.innerHTML = `
+                ${header}
+                <div class="w-full h-full flex items-center justify-center p-12">
+                    <div class="relative w-[1300px] aspect-[1.9/1] slide-up-enter">
+                        ${dotsHtml}
+                        <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center mb-8 glass-panel px-10 py-6 rounded-2xl border-t-4 border-white">
+                            <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-2">Current Leader</div>
+                            <h1 class="text-5xl font-bold text-white mb-2">${sorted[0].name}</h1>
+                            <div class="text-7xl font-tech font-bold" style="color:${sorted[0].color}">${sorted[0].zone + sorted[0].list}</div>
                         </div>
-                        <div class="h-full bg-red-600 flex items-center justify-end pr-8 relative transition-all duration-1000" style="width:50%" id="battle-right">
-                             <span class="text-4xl font-bold text-white drop-shadow-lg z-10" id="battle-txt-right">Opp: 0</span>
-                        </div>
-                        <div class="absolute top-0 bottom-0 w-2 bg-white left-1/2 -translate-x-1/2 z-20 shadow-[0_0_30px_white]"></div>
-                        <div class="absolute -top-16 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-1 rounded-full font-bold shadow-lg">TARGET 251</div>
                     </div>
-                </div>
-            `);
+                </div>`;
         }
 
-        // 4. CHART
-        else if(data.scene === 'chart') {
-            container.innerHTML = wrap(`
-                <div class="glass-panel p-10 rounded-3xl flex flex-col items-center justify-center relative bg-slate-900/90">
-                    <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest">Parliament 500</h2>
-                    <div style="width: 600px; height: 600px;">
-                        <canvas id="seatsChart"></canvas>
-                    </div>
-                </div>
-            `);
-            setTimeout(() => {
-                const ctx = document.getElementById('seatsChart').getContext('2d');
-                const remaining = 500 - data.parties.reduce((s,p)=>s+p.zone+p.list,0);
-                chartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: [...sorted.map(p => p.name), 'Empty'],
-                        datasets: [{ data: [...sorted.map(p => p.zone+p.list), remaining], backgroundColor: [...sorted.map(p => p.color), '#1e293b'], borderWidth: 0 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, datalabels: { display: false } } }
-                });
-            }, 50);
-        }
-
-        // 5. WINNER
+        // 7. WINNER
         else if(data.scene === 'winner') {
             const w = sorted[0];
-            container.innerHTML = wrap(`
-                <div class="text-center relative z-10">
-                    <div class="glass-panel p-24 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/80 backdrop-blur-3xl">
-                        <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">🏆</div>
-                        <div class="text-2xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">Projected Winner</div>
-                        <h1 class="text-9xl font-bold text-white mb-8 drop-shadow-2xl">${w.name}</h1>
-                        <div class="text-[10rem] font-tech font-bold leading-none" style="color:${w.color}">${w.zone + w.list}</div>
+            container.innerHTML = `
+                <div class="w-full h-full flex items-center justify-center">
+                    <div class="text-center relative z-10 scale-in-enter">
+                        <div class="absolute inset-0 bg-${w.color} blur-[150px] opacity-20 z-0 animate-pulse"></div>
+                        <div class="glass-panel p-24 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/80 backdrop-blur-3xl">
+                            <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">🏆</div>
+                            <div class="text-2xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">Projected Winner</div>
+                            <h1 class="text-9xl font-bold text-white mb-8 drop-shadow-2xl">${w.name}</h1>
+                            <div class="text-[10rem] font-tech font-bold leading-none glow-text" style="color:${w.color}">${w.zone + w.list}</div>
+                        </div>
                     </div>
-                </div>
-            `);
+                </div>`;
         }
     }
 
-    // --- 7. LIVE UPDATES ---
+    // ==========================================
+    // 7. LIVE NUMBER UPDATER (NO-FLASH)
+    // ==========================================
     function updateSceneValues(data) {
         const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
         
-        if(data.scene === 'dashboard') {
+        if(data.scene === 'lower3') {
+             data.parties.forEach(p => animateNum(`low-val-${p.id}`, p.zone + p.list));
+        }
+        else if(data.scene === 'dashboard') {
             data.parties.forEach(p => {
-                animateNum(`val-total-${p.id}`, p.zone + p.list);
+                const t = p.zone + p.list;
+                animateNum(`val-zone-${p.id}`, p.zone);
+                animateNum(`val-list-${p.id}`, p.list);
+                animateNum(`val-total-${p.id}`, t);
                 const bar = document.getElementById(`bar-${p.id}`);
-                if(bar) bar.style.width = `${((p.zone+p.list)/500)*100}%`;
+                if(bar) bar.style.width = `${(t/500)*100}%`;
             });
         }
         else if(data.scene === 'battle') {
@@ -460,6 +559,31 @@
                 if(right) { right.style.width = ((t2/500)*100)+'%'; right.style.backgroundColor = p2.color; document.getElementById('battle-txt-right').innerText = `${p2.name}: ${t2}`; }
             }
         }
+        else if(data.scene === 'matrix') {
+            let currentDot = 0;
+            sorted.forEach(p => {
+                const t = p.zone + p.list;
+                const txt = document.getElementById(`mtx-val-${p.id}`);
+                if(txt) txt.innerText = t;
+                for(let i=0; i<t; i++) {
+                    const dot = document.getElementById(`dot-${currentDot}`);
+                    if(dot) { dot.style.backgroundColor = p.color; dot.classList.add('filled'); }
+                    currentDot++;
+                }
+            });
+        }
+        else if(data.scene === 'chart' && chartInstance) {
+            const total = data.parties.reduce((s,p)=>s+p.zone+p.list,0);
+            const remaining = 500 - total;
+            const newData = [...sorted.map(p => p.zone+p.list), remaining];
+            const newColor = [...sorted.map(p=>p.color), '#1e293b'];
+            
+            if(JSON.stringify(chartInstance.data.datasets[0].data) !== JSON.stringify(newData)) {
+                chartInstance.data.datasets[0].data = newData;
+                chartInstance.data.datasets[0].backgroundColor = newColor;
+                chartInstance.update('none'); // Update without full animation
+            }
+        }
     }
 
     function animateNum(id, newVal) {
@@ -467,7 +591,7 @@
         if(!el) return;
         const oldVal = parseInt(el.innerText) || 0;
         if(oldVal !== newVal) {
-            gsap.to(el, { innerHTML: newVal, duration: 1.0, snap: { innerHTML: 1 }, ease: "power2.out" });
+            gsap.to(el, { innerHTML: newVal, duration: 1.5, snap: { innerHTML: 1 }, ease: "power2.out" });
         }
     }
 </script>
