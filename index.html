@@ -3,150 +3,145 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 Election System V4 (P2P)</title>
+    <title>PO1 Professional Broadcast</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;600&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Anuphan', sans-serif; background-color: #020617; color: white; overflow: hidden; }
+        body { font-family: 'Anuphan', sans-serif; background-color: #0f172a; color: white; overflow: hidden; }
         .font-display { font-family: 'Kanit', sans-serif; }
         
-        /* Glassmorphism */
-        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        .glass-strong { background: rgba(2, 6, 23, 0.95); border: 1px solid rgba(255,255,255,0.1); }
-        
+        /* Glass Effect */
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .glass-panel { background: rgba(15, 23, 42, 0.9); border-right: 1px solid rgba(255,255,255,0.05); }
+
         /* Animations */
-        .bar-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        .number-flip { transition: color 0.3s; }
+        .number-change { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bar-fill { transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
         
         /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; }
+        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent); }
         .ticker { display: inline-block; padding-left: 100%; animation: ticker 30s linear infinite; }
         @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 
-        /* Transparent Mode */
-        body.transparent-mode { background: transparent !important; }
-        body.transparent-mode .bg-main { background: transparent !important; }
+        /* OBS Transparent Mode */
+        body.transparent-mode { background-color: transparent !important; }
+        body.transparent-mode .bg-slate-950 { background-color: transparent !important; }
+        body.transparent-mode #viz-area { background-color: transparent !important; }
     </style>
 </head>
 <body>
 
-<div id="app" class="h-screen w-screen relative"></div>
+<div id="app" class="w-full h-full"></div>
 
 <script>
-    // --- 1. DEFAULT DATA ---
+    // --- 1. CONFIGURATION ---
+    // ใช้ EMQX Public Broker (เสถียรกว่า HiveMQ)
+    const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+    
     const DEFAULT_STATE = {
+        roomId: 'NEWS-ROOM-1', // Default Room Name
         parties: [
-            { id: 'p1', name: 'พรรคประชาชน', color: '#FF7F00', constituency: 120, partylist: 30, coalition: false },
-            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', constituency: 100, partylist: 20, coalition: false },
-            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', constituency: 50, partylist: 10, coalition: false },
-            { id: 'p4', name: 'รวมไทยสร้างชาติ', color: '#2C3E50', constituency: 20, partylist: 5, coalition: false }
+            { id: 'p1', name: 'พรรคประชาชน', color: '#FF7F00', constituency: 100, partylist: 25 },
+            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', constituency: 90, partylist: 20 },
+            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', constituency: 50, partylist: 10 },
+            { id: 'p4', name: 'รวมไทยสร้างชาติ', color: '#2C3E50', constituency: 30, partylist: 5 }
         ],
-        scene: 'leaderboard', // parliament, leaderboard, vs, victory
-        ticker: 'รายงานสดผลการเลือกตั้งอย่างไม่เป็นทางการ...',
-        bgMode: 'dark' // dark, transparent, green
+        scene: 'parliament', // parliament, leaderboard, coalition, winner
+        bgMode: 'dark',
+        ticker: 'เกาะติดสถานการณ์การเลือกตั้ง 2569 ตลอดทั้งวัน...'
     };
 
-    let state = JSON.parse(localStorage.getItem('po1_v4_state')) || JSON.parse(JSON.stringify(DEFAULT_STATE));
-    let peer = null;
-    let conn = null;
-    let myId = '';
+    let state = JSON.parse(localStorage.getItem('po1_final_data')) || JSON.parse(JSON.stringify(DEFAULT_STATE));
+    let client = null;
+    let isConnected = false;
 
-    // --- 2. P2P NETWORKING (The Stable One) ---
+    // --- 2. NETWORK ENGINE (The Core) ---
     
-    function initHost(customId) {
-        // Host (Control Room) creates the "Room"
-        peer = new Peer(customId);
+    function initNetwork(role) {
+        const clientId = 'client_' + Math.random().toString(16).substr(2, 8);
+        const topic = `po1/live/${state.roomId}`;
+
+        console.log(`📡 Connecting to Cloud (${role})...`);
+        updateStatus('CONNECTING...', 'yellow');
+
+        client = mqtt.connect(MQTT_BROKER, {
+            clientId: clientId,
+            keepalive: 60,
+            clean: true, // Clean session
+            reconnectPeriod: 2000
+        });
+
+        client.on('connect', () => {
+            console.log('✅ Connected!');
+            isConnected = true;
+            updateStatus('ONLINE', 'green');
+            
+            if (role === 'control') {
+                // Control: Publish current state immediately (Retain=True)
+                publishState(); 
+            } else {
+                // On-Air: Subscribe to get the retained message
+                client.subscribe(topic, { qos: 0 });
+            }
+        });
+
+        client.on('message', (t, msg) => {
+            if (role === 'onair') {
+                try {
+                    const incoming = JSON.parse(msg.toString());
+                    // Update state & Render
+                    state = incoming;
+                    if(window.renderScene) window.renderScene();
+                } catch (e) { console.error(e); }
+            }
+        });
+
+        client.on('offline', () => { isConnected = false; updateStatus('OFFLINE', 'red'); });
+    }
+
+    function publishState() {
+        if (!client || !isConnected) return;
+        localStorage.setItem('po1_final_data', JSON.stringify(state));
         
-        peer.on('open', (id) => {
-            myId = id;
-            console.log('Host Open:', id);
-            renderControl(); // Re-render to show status
-        });
-
-        peer.on('connection', (c) => {
-            console.log('Client connected!');
-            conn = c;
-            // Send initial data immediately
-            setTimeout(() => sendData(), 500);
-            
-            conn.on('open', () => { alert('🔗 เชื่อมต่อกับหน้าจอแสดงผลสำเร็จ!'); });
-        });
-
-        peer.on('error', (err) => {
-            alert('ชื่อห้องซ้ำหรือมีปัญหาการเชื่อมต่อ: ' + err.type);
-        });
+        // KEY FEATURE: retain: true
+        // Server จะจำข้อมูลล่าสุดไว้ ใครต่อเข้ามาใหม่จะเห็นข้อมูลนี้ทันที ไม่ต้องรีเฟรช
+        client.publish(`po1/live/${state.roomId}`, JSON.stringify(state), { qos: 0, retain: true });
     }
 
-    function initClient(targetId) {
-        // Client (On-Air) connects to Host
-        peer = new Peer(); // Auto ID
-        
-        peer.on('open', () => {
-            conn = peer.connect(targetId);
-            
-            conn.on('open', () => {
-                console.log('Connected to Host');
-                renderOnAirStatus('ONLINE', 'text-green-500');
-            });
-
-            conn.on('data', (data) => {
-                console.log('Received:', data);
-                state = data;
-                if(window.drawOnAir) window.drawOnAir();
-            });
-            
-            conn.on('close', () => renderOnAirStatus('DISCONNECTED', 'text-red-500'));
-        });
-
-        peer.on('error', (err) => {
-            console.log(err);
-            renderOnAirStatus('ERROR: ' + err.type, 'text-red-500');
-        });
-    }
-
-    function sendData() {
-        if(conn && conn.open) {
-            conn.send(state);
-        }
-        localStorage.setItem('po1_v4_state', JSON.stringify(state));
-    }
-
-    // --- 3. ROUTING ---
+    // --- 3. ROUTER ---
     const app = document.getElementById('app');
     const params = new URLSearchParams(window.location.search);
     const page = params.get('page');
 
-    if(!page) renderLanding();
-    else if(page === 'control') { renderControl(); if(params.get('room')) initHost(params.get('room')); }
-    else if(page === 'onair') { renderOnAir(); if(params.get('room')) initClient(params.get('room')); }
+    if (!page) renderLanding();
+    else if (page === 'control') { renderControl(); initNetwork('control'); }
+    else if (page === 'onair') { renderOnAir(); initNetwork('onair'); }
 
     // --- 4. LANDING PAGE ---
     function renderLanding() {
-        const randomId = 'po1-' + Math.floor(Math.random() * 9999);
         app.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full bg-slate-950 p-6 space-y-8">
-                <div class="text-center">
-                    <h1 class="text-6xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">PO1 SYSTEM V4</h1>
-                    <p class="text-slate-400 mt-2">P2P Direct Connection • Stable & Real-time</p>
-                </div>
-
-                <div class="glass p-8 rounded-2xl w-full max-w-lg space-y-6">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ตั้งชื่อห้อง (Room ID)</label>
-                        <input type="text" id="roomId" value="${randomId}" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-center text-xl font-mono font-bold focus:border-orange-500 outline-none transition">
-                        <p class="text-xs text-slate-500 mt-2 text-center">ต้องใช้ชื่อเดียวกันทั้งเครื่องควบคุมและเครื่องแสดงผล</p>
+            <div class="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 p-4">
+                <div class="glass p-10 rounded-2xl max-w-lg w-full text-center space-y-6">
+                    <h1 class="text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">PO1 SYSTEM</h1>
+                    <div class="text-slate-400 text-sm">Professional Broadcast Engine</div>
+                    
+                    <div class="text-left">
+                        <label class="text-xs font-bold text-slate-500 uppercase ml-1">ROOM ID (ตั้งชื่อห้อง)</label>
+                        <input id="roomInput" type="text" value="${state.roomId}" class="w-full mt-1 bg-slate-900 border border-slate-700 p-4 rounded-xl text-xl font-bold text-center text-white focus:border-blue-500 outline-none uppercase placeholder-slate-600" placeholder="EX. NEWS-1">
+                        <p class="text-[10px] text-slate-500 mt-2 text-center text-red-400">*สำคัญ: ต้องใส่ชื่อห้องให้เหมือนกันทั้ง 2 เครื่อง</p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="go('control')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 py-4 rounded-xl flex flex-col items-center gap-2 transition group">
-                            <span class="text-3xl">🎛️</span>
-                            <span class="font-bold group-hover:text-orange-400">ผู้ควบคุม (Host)</span>
+                    <div class="grid grid-cols-2 gap-4 pt-4">
+                        <button onclick="goTo('control')" class="bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition flex flex-col items-center gap-1">
+                            <span class="text-2xl">🎛️</span>
+                            <span>CONTROL</span>
                         </button>
-                        <button onclick="go('onair')" class="bg-red-900/50 hover:bg-red-900/80 border border-red-800 py-4 rounded-xl flex flex-col items-center gap-2 transition group">
-                            <span class="text-3xl">📺</span>
-                            <span class="font-bold group-hover:text-red-300">จอแสดงผล (Client)</span>
+                        <button onclick="goTo('onair')" class="bg-red-600 hover:bg-red-500 py-4 rounded-xl font-bold transition flex flex-col items-center gap-1">
+                            <span class="text-2xl">📺</span>
+                            <span>ON-AIR</span>
                         </button>
                     </div>
                 </div>
@@ -154,252 +149,230 @@
         `;
     }
 
-    window.go = (mode) => {
-        const room = document.getElementById('roomId').value;
-        window.location.href = `?page=${mode}&room=${room}`;
+    window.goTo = (p) => {
+        state.roomId = document.getElementById('roomInput').value.toUpperCase();
+        localStorage.setItem('po1_final_data', JSON.stringify(state));
+        window.location.href = `?page=${p}`;
     };
 
-    // --- 5. CONTROL PAGE ---
+    // --- 5. CONTROL ROOM ---
     function renderControl() {
-        document.title = "Control Room";
+        document.title = "Control Room - " + state.roomId;
         
-        window.updateParty = (id, key, val) => {
-            const p = state.parties.find(x => x.id === id);
-            if(key === 'constituency' || key === 'partylist') p[key] = parseInt(val) || 0;
-            else p[key] = val;
-            renderPartyList(); sendData();
+        window.updateVal = (id, k, v) => {
+            const p = state.parties.find(x=>x.id===id);
+            p[k] = (k==='constituency'||k==='partylist') ? (parseInt(v)||0) : v;
+            renderPartyList(); publishState();
         };
 
-        window.setScene = (s) => { state.scene = s; sendData(); updateControlUI(); };
-        window.setBg = (m) => { state.bgMode = m; sendData(); };
-        window.addParty = () => { state.parties.push({id:'p'+Date.now(), name:'New Party', color:'#666', constituency:0, partylist:0}); renderPartyList(); sendData(); };
-        window.removeParty = (id) => { if(confirm('Lop?')) { state.parties = state.parties.filter(p=>p.id!==id); renderPartyList(); sendData(); }};
-
+        window.setScene = (s) => { state.scene = s; publishState(); updateUI(); };
+        window.setBg = (m) => { state.bgMode = m; publishState(); };
+        
         app.innerHTML = `
-            <div class="flex h-full bg-slate-950 text-slate-200">
-                <div class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
-                    <div class="p-4 border-b border-slate-800">
-                        <div class="text-[10px] text-slate-500 uppercase">ROOM ID</div>
-                        <div class="font-mono font-bold text-orange-500 truncate">${params.get('room')}</div>
-                        <div class="text-[10px] text-green-500 mt-1">${myId ? '● HOSTING' : '○ STARTING...'}</div>
+            <div class="flex h-screen bg-slate-900 text-slate-200">
+                <div class="w-64 glass-panel flex flex-col p-4 gap-4">
+                    <div class="pb-4 border-b border-slate-700">
+                        <div class="text-[10px] text-slate-500 font-bold uppercase">CONNECTED TO</div>
+                        <div class="font-mono text-xl font-bold text-blue-400 truncate">${state.roomId}</div>
+                        <div id="status-badge" class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-500 mt-1">CONNECTING...</div>
                     </div>
-                    
-                    <div class="p-4 space-y-2 overflow-y-auto flex-1">
-                        <div class="text-xs font-bold text-slate-500 uppercase">SCENES</div>
-                        ${['parliament', 'leaderboard', 'vs', 'victory'].map(s => `
-                            <button id="btn-${s}" onclick="setScene('${s}')" class="w-full text-left px-4 py-3 rounded border transition uppercase text-sm font-bold ${state.scene===s?'bg-orange-600 border-orange-500 text-white':'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}">
-                                ${s}
-                            </button>
-                        `).join('')}
-                        
-                        <div class="mt-6 text-xs font-bold text-slate-500 uppercase">OUTPUT MODE</div>
-                        <select onchange="setBg(this.value)" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm mt-1">
+
+                    <div class="space-y-2">
+                        <div class="text-[10px] text-slate-500 font-bold uppercase">SCENES</div>
+                        <button id="btn-parliament" onclick="setScene('parliament')" class="scene-btn">🏛️ Parliament</button>
+                        <button id="btn-leaderboard" onclick="setScene('leaderboard')" class="scene-btn">🏆 Leaderboard</button>
+                        <button id="btn-coalition" onclick="setScene('coalition')" class="scene-btn">🤝 Coalition</button>
+                        <button id="btn-winner" onclick="setScene('winner')" class="scene-btn">👑 Winner</button>
+                    </div>
+
+                    <div class="mt-auto pt-4 border-t border-slate-700">
+                        <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">BACKGROUND</div>
+                        <select onchange="setBg(this.value)" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-xs">
                             <option value="dark">Standard Dark</option>
                             <option value="transparent">Transparent (OBS)</option>
-                            <option value="green">Green Screen</option>
                         </select>
-
-                        <div class="mt-6 text-xs font-bold text-slate-500 uppercase">TICKER</div>
-                        <textarea onchange="state.ticker=this.value; sendData();" class="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm h-24 resize-none">${state.ticker}</textarea>
+                        <div class="text-[10px] text-slate-500 font-bold uppercase mt-4 mb-2">TICKER TEXT</div>
+                        <textarea oninput="state.ticker=this.value; publishState();" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-xs h-20 resize-none">${state.ticker}</textarea>
                     </div>
                 </div>
 
-                <div class="flex-1 flex flex-col">
-                    <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
-                        <h1 class="text-xl font-display font-bold">Party Manager</h1>
-                        <div class="text-sm font-mono text-slate-400">Total: <span class="text-white font-bold text-lg">${state.parties.reduce((a,b)=>a+b.constituency+b.partylist,0)}</span> / 500</div>
-                    </div>
-                    <div class="flex-1 overflow-y-auto p-6 space-y-3 bg-slate-950">
-                        <div id="party-list" class="space-y-2"></div>
-                        <button onclick="addParty()" class="w-full py-3 border border-dashed border-slate-700 rounded text-slate-500 hover:bg-slate-900 hover:text-slate-300 transition">+ Add Party</button>
-                    </div>
+                <div class="flex-1 p-6 overflow-y-auto bg-slate-950">
+                    <div id="party-container" class="max-w-4xl mx-auto space-y-3"></div>
                 </div>
             </div>
+            <style>.scene-btn { width:100%; text-align:left; padding:10px; border-radius:8px; background:rgba(255,255,255,0.05); transition:0.2s; font-weight:bold; } .scene-btn:hover { background:rgba(255,255,255,0.1); } .scene-btn.active { background:#2563eb; color:white; }</style>
         `;
-        renderPartyList();
+        renderPartyList(); updateUI();
     }
 
     function renderPartyList() {
-        const sorted = [...state.parties].sort((a,b) => (b.constituency+b.partylist) - (a.constituency+a.partylist));
-        document.getElementById('party-list').innerHTML = sorted.map(p => `
-            <div class="bg-slate-900 p-3 rounded-lg border-l-4 flex items-center gap-4" style="border-color:${p.color}">
-                <input type="color" value="${p.color}" onchange="updateParty('${p.id}','color',this.value)" class="w-8 h-8 rounded bg-transparent border-0 cursor-pointer">
-                <input type="text" value="${p.name}" onchange="updateParty('${p.id}','name',this.value)" class="bg-transparent font-bold text-lg flex-1 focus:outline-none">
+        const sorted = [...state.parties].sort((a,b)=>(b.constituency+b.partylist)-(a.constituency+a.partylist));
+        document.getElementById('party-container').innerHTML = sorted.map(p => `
+            <div class="glass p-4 rounded-xl flex items-center gap-4 border-l-4 transition-all hover:bg-slate-800" style="border-color:${p.color}">
+                <input type="color" value="${p.color}" onchange="updateVal('${p.id}','color',this.value)" class="w-12 h-12 rounded-lg bg-transparent cursor-pointer border-0">
+                <input type="text" value="${p.name}" oninput="updateVal('${p.id}','name',this.value)" class="bg-transparent font-display font-bold text-2xl flex-1 focus:outline-none border-b border-transparent focus:border-slate-500 pb-1">
                 
-                <div class="flex items-center gap-2">
-                    <div class="flex flex-col items-center bg-black/30 p-1 rounded">
-                        <span class="text-[10px] text-slate-500">เขต</span>
-                        <input type="number" value="${p.constituency}" onchange="updateParty('${p.id}','constituency',this.value)" class="w-16 bg-transparent text-center font-mono font-bold text-lg focus:outline-none">
+                <div class="flex gap-6">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold">แบ่งเขต</span>
+                        <input type="number" value="${p.constituency}" oninput="updateVal('${p.id}','constituency',this.value)" class="w-24 bg-slate-900 text-center font-mono text-2xl font-bold rounded-lg py-2 focus:outline-none focus:ring-2 ring-blue-500 text-white">
                     </div>
-                    <div class="flex flex-col items-center bg-black/30 p-1 rounded">
-                        <span class="text-[10px] text-slate-500">บัญชี</span>
-                        <input type="number" value="${p.partylist}" onchange="updateParty('${p.id}','partylist',this.value)" class="w-16 bg-transparent text-center font-mono font-bold text-lg focus:outline-none">
+                    <div class="flex flex-col items-center">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold">ปาร์ตี้ลิสต์</span>
+                        <input type="number" value="${p.partylist}" oninput="updateVal('${p.id}','partylist',this.value)" class="w-24 bg-slate-900 text-center font-mono text-2xl font-bold rounded-lg py-2 focus:outline-none focus:ring-2 ring-indigo-500 text-white">
                     </div>
                 </div>
-                <button onclick="removeParty('${p.id}')" class="text-slate-600 hover:text-red-500 px-2">×</button>
             </div>
         `).join('');
     }
 
-    // --- 6. ON-AIR PAGE ---
+    function updateUI() {
+        document.querySelectorAll('.scene-btn').forEach(b=>b.classList.remove('active'));
+        const btn = document.getElementById('btn-'+state.scene);
+        if(btn) btn.classList.add('active');
+    }
+
+    function updateStatus(msg, color) {
+        const el = document.getElementById('status-badge');
+        if(el) {
+            const map = { green: 'bg-green-500/20 text-green-500', red: 'bg-red-500/20 text-red-500', yellow: 'bg-yellow-500/20 text-yellow-500' };
+            el.className = `inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-1 ${map[color]}`;
+            el.innerText = msg;
+        }
+    }
+
+    // --- 6. ON-AIR DISPLAY ---
     function renderOnAir() {
         document.title = "On-Air Output";
         app.innerHTML = `
-            <div id="wrapper" class="w-full h-full flex flex-col bg-main bg-slate-950 transition-colors duration-500">
-                <div id="status-overlay" class="absolute top-2 right-2 text-[10px] font-mono bg-black/50 px-2 rounded text-yellow-500 z-50">CONNECTING...</div>
-
-                <div id="viz" class="flex-1 relative flex items-center justify-center p-8 overflow-hidden"></div>
-
-                <div class="h-14 bg-slate-900 border-t border-slate-800 flex items-center relative z-40 shadow-2xl">
-                    <div class="bg-red-600 h-full flex items-center px-6 font-bold text-sm tracking-widest shrink-0 uppercase">Breaking News</div>
-                    <div class="ticker-wrap h-full flex items-center text-lg font-display">
-                        <div id="ticker-text" class="ticker px-4"></div>
+            <div id="viz-area" class="w-full h-full flex flex-col bg-slate-950 transition-colors duration-500">
+                <div id="viz-container" class="flex-1 relative flex items-center justify-center p-8 overflow-hidden"></div>
+                
+                <div class="h-16 flex shrink-0 border-t border-slate-800 bg-slate-900 shadow-2xl z-50">
+                    <div class="bg-red-600 px-8 flex items-center justify-center">
+                        <span class="font-display font-bold text-white tracking-widest animate-pulse">LIVE</span>
+                    </div>
+                    <div class="flex-1 ticker-wrap flex items-center bg-slate-900">
+                        <div id="ticker" class="ticker font-display text-2xl px-4 text-slate-300"></div>
                     </div>
                 </div>
             </div>
         `;
-        window.drawOnAir();
+        window.renderScene();
     }
 
-    function renderOnAirStatus(msg, colorClass) {
-        const el = document.getElementById('status-overlay');
-        if(el) {
-            el.innerText = msg;
-            el.className = `absolute top-2 right-2 text-[10px] font-mono bg-black/50 px-2 rounded z-50 ${colorClass}`;
-            if(msg === 'ONLINE') setTimeout(() => el.style.display = 'none', 3000); // Hide after connected
-        }
-    }
+    window.renderScene = () => {
+        // Handle Background
+        if(state.bgMode === 'transparent') document.body.classList.add('transparent-mode');
+        else document.body.classList.remove('transparent-mode');
 
-    window.drawOnAir = () => {
-        const wrapper = document.getElementById('wrapper');
-        const viz = document.getElementById('viz');
-        const ticker = document.getElementById('ticker-text');
+        document.getElementById('ticker').innerText = state.ticker;
         
-        // Handle BG
-        if(state.bgMode === 'transparent') {
-            document.body.classList.add('transparent-mode');
-            wrapper.className = "w-full h-full flex flex-col bg-transparent";
-        } else if(state.bgMode === 'green') {
-            document.body.classList.remove('transparent-mode');
-            wrapper.className = "w-full h-full flex flex-col bg-green-600";
-        } else {
-            document.body.classList.remove('transparent-mode');
-            wrapper.className = "w-full h-full flex flex-col bg-slate-950";
-        }
+        const container = document.getElementById('viz-container');
+        container.innerHTML = ''; // Clear
 
-        ticker.innerText = state.ticker;
+        const sorted = [...state.parties].sort((a,b)=>(b.constituency+b.partylist)-(a.constituency+a.partylist));
 
-        // Render Scene
-        viz.innerHTML = '';
-        const sorted = [...state.parties].sort((a,b) => (b.constituency+b.partylist) - (a.constituency+a.partylist));
+        if(state.scene === 'parliament') drawParliament(container, sorted);
+        else if(state.scene === 'leaderboard') drawLeaderboard(container, sorted);
+        else if(state.scene === 'coalition') drawCoalition(container, sorted);
+        else if(state.scene === 'winner') drawWinner(container, sorted);
+    };
+
+    // --- 7. VISUALIZATIONS (Graphics) ---
+
+    function drawParliament(el, parties) {
+        let dots = []; let idx = 0;
+        let colorMap = []; parties.forEach(p=>{ for(let i=0;i<p.constituency+p.partylist;i++) colorMap.push(p.color); });
         
-        if(state.scene === 'parliament') drawParliament(viz, sorted);
-        else if(state.scene === 'leaderboard') drawLeaderboard(viz, sorted);
-        else if(state.scene === 'vs') drawVS(viz, sorted);
-        else if(state.scene === 'victory') drawVictory(viz, sorted);
-    }
-
-    // --- 7. VISUAL MODES ---
-
-    // Mode 1: Parliament (เดิม)
-    function drawParliament(container, parties) {
-        let dots = []; let seatIdx = 0;
-        let colorMap = []; parties.forEach(p => { for(let i=0;i<(p.constituency+p.partylist);i++) colorMap.push(p.color); });
-        
+        // 500 Seats Semicircle Algorithm
         for(let r=0; r<12; r++) {
             const radius = 35 + (r * 4.5);
-            const count = Math.floor(18 + r * 5); 
-            const step = 180 / (count - 1);
+            const count = Math.floor(18 + r * 5); const step = 180/(count-1);
             for(let a=0; a<count; a++) {
-                if(seatIdx >= 500) break;
-                const rad = (180 - (a * step)) * (Math.PI / 180);
-                dots.push({ x: 50 + radius * Math.cos(rad), y: 95 - radius * Math.sin(rad), c: colorMap[seatIdx] || '#334155' });
-                seatIdx++;
+                if(idx>=500) break;
+                const rad = (180-(a*step))*(Math.PI/180);
+                dots.push({ x: 50+radius*Math.cos(rad), y: 90-radius*Math.sin(rad), c: colorMap[idx]||'#334155' });
+                idx++;
             }
         }
-        let html = `<div class="relative w-[90%] max-w-[1100px] aspect-[2/1]">`;
-        dots.forEach(d => html += `<div class="absolute w-[1.2%] pb-[1.2%] rounded-full transition-colors duration-500" style="left:${d.x}%; top:${d.y}%; background:${d.c}; transform:translate(-50%,-50%)"></div>`);
-        if(parties[0]) html += `<div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center glass-strong px-10 py-6 rounded-2xl mb-4 border border-slate-700 shadow-2xl">
-            <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">Current Leader</div>
-            <h1 class="text-4xl font-display font-bold text-white mb-2">${parties[0].name}</h1>
-            <div class="text-6xl font-mono font-bold" style="color:${parties[0].color}">${parties[0].constituency+parties[0].partylist}</div>
-        </div>`;
+
+        let html = `<div class="relative w-[1100px] aspect-[2/1] origin-bottom scale-90">`;
+        dots.forEach(d => {
+            html += `<div class="absolute w-[1.2%] pb-[1.2%] rounded-full transition-colors duration-700" style="left:${d.x}%; top:${d.y}%; background:${d.c}; transform:translate(-50%,-50%); box-shadow:0 0 5px ${d.c}66;"></div>`;
+        });
+        
+        const top = parties[0];
+        if(top) {
+            html += `
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center glass px-12 py-6 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl">
+                <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">UNOFFICIAL RESULTS</div>
+                <h1 class="text-5xl font-display font-bold mb-2 text-white drop-shadow-lg">${top.name}</h1>
+                <div class="text-8xl font-mono font-bold number-change" style="color:${top.color}; text-shadow:0 0 30px ${top.color}44;">${top.constituency+top.partylist}</div>
+            </div>`;
+        }
         html += `</div>`;
-        container.innerHTML = html;
+        el.innerHTML = html;
     }
 
-    // Mode 2: Leaderboard (ใหม่)
-    function drawLeaderboard(container, parties) {
-        let html = `<div class="w-full max-w-4xl space-y-4">
-            <h2 class="text-3xl font-display font-bold mb-8 pl-2 border-l-4 border-orange-500">LIVE RESULTS</h2>`;
-        
+    function drawLeaderboard(el, parties) {
+        let html = `<div class="w-full max-w-5xl space-y-4">`;
         parties.forEach((p, i) => {
-            const total = p.constituency + p.partylist;
-            const percent = (total / 500) * 100;
+            const total = p.constituency+p.partylist;
+            const pct = (total/500)*100;
             html += `
-                <div class="glass p-4 rounded-xl flex items-center gap-4 transition-all duration-500 hover:bg-slate-800/80">
-                    <div class="font-mono text-2xl font-bold text-slate-500 w-8 text-center">${i+1}</div>
-                    <div class="w-12 h-12 rounded-lg flex-shrink-0" style="background:${p.color}"></div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-end mb-1">
-                            <span class="font-bold text-xl font-display">${p.name}</span>
-                            <span class="font-mono font-bold text-2xl">${total}</span>
+                <div class="glass p-4 rounded-xl flex items-center gap-6 relative overflow-hidden group">
+                    <div class="font-mono text-4xl font-bold text-slate-600 w-12 text-center z-10">${i+1}</div>
+                    <div class="flex-1 z-10">
+                        <div class="flex justify-between items-end mb-2">
+                            <h2 class="text-3xl font-display font-bold text-white">${p.name}</h2>
+                            <span class="text-4xl font-mono font-bold number-change" style="color:${p.color}">${total}</span>
                         </div>
-                        <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                            <div class="h-full bar-fill" style="width:${percent}%; background:${p.color}"></div>
+                        <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full bar-fill" style="width:${pct}%; background:${p.color}; box-shadow:0 0 15px ${p.color};"></div>
                         </div>
                     </div>
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-${p.color}/10 to-transparent opacity-0 group-hover:opacity-20 transition duration-500"></div>
                 </div>
             `;
         });
         html += `</div>`;
-        container.innerHTML = html;
+        el.innerHTML = html;
     }
 
-    // Mode 3: VS Mode (ใหม่)
-    function drawVS(container, parties) {
-        const p1 = parties[0] || {name:'-', constituency:0, partylist:0, color:'#333'};
-        const p2 = parties[1] || {name:'-', constituency:0, partylist:0, color:'#333'};
-        const t1 = p1.constituency + p1.partylist;
-        const t2 = p2.constituency + p2.partylist;
-
-        const card = (p, t, align) => `
-            <div class="flex-1 glass-strong p-8 rounded-2xl border-t-8 flex flex-col justify-center ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}" style="border-color:${p.color}">
-                <div class="text-sm text-slate-400 uppercase tracking-widest mb-2">RANK ${align==='left'?'1':'2'}</div>
-                <h1 class="text-5xl font-display font-bold mb-4 leading-tight">${p.name}</h1>
-                <div class="text-[120px] font-mono font-bold leading-none mb-4" style="color:${p.color}">${t}</div>
-                <div class="flex gap-4 text-sm text-slate-400 font-mono">
-                    <div>เขต: <span class="text-white">${p.constituency}</span></div>
-                    <div>บัญชี: <span class="text-white">${p.partylist}</span></div>
-                </div>
+    function drawCoalition(el, parties) {
+        // Just visualizing composition
+        let html = `<div class="w-full max-w-6xl text-center">
+            <h2 class="text-5xl font-display font-bold mb-12 text-white drop-shadow-lg">Parliament Composition</h2>
+            <div class="h-32 w-full bg-slate-800 rounded-full overflow-hidden flex shadow-2xl border-4 border-slate-700 relative mb-8">
+                ${parties.map(p => `
+                    <div style="width:${((p.constituency+p.partylist)/500)*100}%; background:${p.color}" class="h-full bar-fill relative border-r border-black/10"></div>
+                `).join('')}
+                <div class="absolute top-0 bottom-0 w-1 bg-white left-[50.2%] z-20 shadow-[0_0_20px_white]"></div>
+                <div class="absolute -top-12 left-[50.2%] -translate-x-1/2 bg-white text-black px-4 py-1 rounded-full font-bold shadow-lg">TARGET 251</div>
             </div>
-        `;
-
-        container.innerHTML = `
-            <div class="flex gap-12 w-full max-w-6xl items-center">
-                ${card(p1, t1, 'left')}
-                <div class="text-4xl font-bold font-display italic text-slate-600">VS</div>
-                ${card(p2, t2, 'right')}
-            </div>
-        `;
-    }
-
-    // Mode 4: Victory (ใหม่)
-    function drawVictory(container, parties) {
-        const winner = parties[0];
-        const total = winner.constituency + winner.partylist;
-        
-        container.innerHTML = `
-            <div class="text-center relative">
-                <div class="absolute inset-0 bg-gradient-to-b from-transparent to-${winner.color} opacity-20 blur-3xl"></div>
-                <div class="relative glass-strong p-16 rounded-3xl border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)]">
-                    <div class="text-yellow-400 text-6xl mb-6 animate-bounce">👑</div>
-                    <div class="text-xl font-bold text-slate-400 uppercase tracking-[0.3em] mb-4">Unstatisfied Result Winner</div>
-                    <h1 class="text-7xl font-display font-bold text-white mb-6 drop-shadow-lg">${winner.name}</h1>
-                    <div class="text-9xl font-mono font-bold mb-8" style="color:${winner.color}">${total}</div>
-                    <div class="inline-block bg-white/10 px-6 py-2 rounded-full text-sm font-mono text-white/80">
-                        CONSTITUENCY: ${winner.constituency} • PARTY-LIST: ${winner.partylist}
+            <div class="flex justify-center flex-wrap gap-4">
+                 ${parties.map(p => `
+                    <div class="glass px-6 py-3 rounded-lg flex items-center gap-3 border-b-4" style="border-color:${p.color}">
+                        <div class="font-bold text-xl">${p.name}</div>
+                        <div class="font-mono text-2xl font-bold text-slate-300">${p.constituency+p.partylist}</div>
                     </div>
+                `).join('')}
+            </div>
+        </div>`;
+        el.innerHTML = html;
+    }
+
+    function drawWinner(el, parties) {
+        const w = parties[0];
+        el.innerHTML = `
+            <div class="text-center relative z-10">
+                <div class="absolute inset-0 bg-${w.color} blur-[150px] opacity-20 z-0"></div>
+                <div class="glass p-20 rounded-3xl border border-white/20 shadow-2xl relative z-10">
+                    <div class="text-6xl mb-6 animate-bounce">🏆</div>
+                    <div class="text-2xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">Projected Winner</div>
+                    <h1 class="text-8xl font-display font-bold text-white mb-8 drop-shadow-xl">${w.name}</h1>
+                    <div class="text-[10rem] font-mono font-bold leading-none number-change" style="color:${w.color}; text-shadow:0 0 50px ${w.color};">${w.constituency+w.partylist}</div>
                 </div>
             </div>
         `;
