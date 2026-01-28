@@ -3,36 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 INSTANT LIVE SYSTEM</title>
+    <title>PO1 ULTIMATE ELECTION SYSTEM</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;600&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;500;600&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+
     <style>
-        body { font-family: 'Anuphan', sans-serif; background: #0f172a; color: white; overflow: hidden; }
-        .font-display { font-family: 'Kanit', sans-serif; }
+        :root { --p-primary: #3b82f6; --p-bg: #0f172a; }
+        body { font-family: 'Anuphan', sans-serif; background-color: var(--p-bg); color: white; overflow: hidden; }
+        .font-num { font-family: 'Oswald', sans-serif; letter-spacing: 1px; }
         
-        /* Glass UI */
-        .glass { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
-        .glass-btn { background: rgba(255,255,255,0.05); transition: 0.2s; }
-        .glass-btn:hover { background: rgba(255,255,255,0.1); }
-        .active-scene { background: #2563eb !important; border-color: #3b82f6 !important; color: white !important; }
+        /* GLASS UI STYLE */
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .glass-panel { background: rgba(15, 23, 42, 0.95); border-right: 1px solid rgba(255,255,255,0.1); }
 
-        /* Animations */
-        .bar-fill { transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .num-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes pop { 50% { transform: scale(1.3); } }
+        /* ANIMATIONS */
+        .slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         
-        /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; }
-        .ticker { display: inline-block; padding-left: 100%; animation: ticker 20s linear infinite; }
-        @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+        .pulse-glow { animation: glow 2s infinite; }
+        @keyframes glow { 0% { box-shadow: 0 0 5px #ef4444; } 50% { box-shadow: 0 0 20px #ef4444; } 100% { box-shadow: 0 0 5px #ef4444; } }
 
-        /* Transparent for OBS */
-        body.transparent-mode { background: transparent !important; }
-        body.transparent-mode .obs-hide { display: none !important; }
+        /* TICKER */
+        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+        .ticker { display: inline-block; padding-left: 100%; animation: ticker 25s linear infinite; }
+        @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* OBS MODE */
+        body.transparent .bg-main { background: transparent !important; }
+        body.transparent .obs-hide { display: none !important; }
     </style>
 </head>
 <body>
@@ -40,248 +48,273 @@
 <div id="app" class="w-full h-full"></div>
 
 <script>
-    // --- SYSTEM CONFIG (AUTO CONNECT) ---
-    // ใช้ Room ID ตายตัวเพื่อให้เชื่อมกันทันทีโดยไม่ต้องพิมพ์
-    const SYSTEM_ID = "PO1-AUTO-CHANNEL-V6"; 
-    const MQTT_HOST = "wss://broker.hivemq.com:8884/mqtt"; // Secure WebSocket (ทะลุ Block ได้ดีที่สุด)
-
-    // ข้อมูลเริ่มต้น
-    const DEFAULT_DATA = {
-        parties: [
-            { id: 'p1', name: 'พรรคประชาชน', color: '#FF7F00', score: 120 },
-            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', score: 100 },
-            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', score: 50 },
-            { id: 'p4', name: 'รวมไทยสร้างชาติ', color: '#2C3E50', score: 20 }
-        ],
-        scene: 'leaderboard', // leaderboard, vs, winner
-        ticker: 'รายงานสดผลการเลือกตั้ง 2569...',
-        bg: 'dark' // dark, transparent
+    // --- 1. SYSTEM CONFIG ---
+    const SESSION_KEY = 'PO1_SESSION_ID';
+    // สร้าง ID ห้องแบบสุ่มแต่จำไว้ในเครื่อง เพื่อให้เปิดกี่หน้าต่างก็เจอกันเอง
+    let savedRoom = localStorage.getItem(SESSION_KEY);
+    if (!savedRoom) {
+        savedRoom = 'ROOM-' + Math.floor(Math.random() * 9999);
+        localStorage.setItem(SESSION_KEY, savedRoom);
+    }
+    
+    const CONFIG = {
+        roomId: savedRoom, // ใช้ห้องเดิมเสมอในเครื่องเดียวกัน
+        broker: 'wss://broker.emqx.io:8084/mqtt' // Enterprise Public Broker
     };
 
-    let state = JSON.parse(localStorage.getItem('po1_v6_data')) || JSON.parse(JSON.stringify(DEFAULT_DATA));
+    // Data Structure
+    const INITIAL_DATA = {
+        parties: [
+            { id: 'p1', name: 'พรรคประชาชน', color: '#FF9100', score: 145 },
+            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', score: 138 },
+            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', score: 70 },
+            { id: 'p4', name: 'รทสช.', color: '#2C3E50', score: 35 },
+            { id: 'p5', name: 'พลังประชารัฐ', color: '#166534', score: 20 },
+            { id: 'p6', name: 'อื่นๆ', color: '#64748B', score: 12 }
+        ],
+        totalSeats: 500,
+        scene: 'dashboard', // dashboard, chart, parliament, winner
+        ticker: 'เกาะติดผลการเลือกตั้ง 2569 : รายงานสดจากศูนย์ข้อมูล PO1 Realtime Election Center...',
+        bg: 'dark'
+    };
+
+    let state = JSON.parse(localStorage.getItem('po1_ultimate_data')) || JSON.parse(JSON.stringify(INITIAL_DATA));
     let client = null;
-    let localChannel = new BroadcastChannel(SYSTEM_ID);
+    let myChart = null; // เก็บตัวแปร Chart
 
-    // --- 1. NETWORK ENGINE (HYBRID) ---
-    function connectNetwork(role) {
-        console.log(`🚀 STARTING ${role.toUpperCase()} MODE`);
-        
-        // A. Local Sync (เครื่องเดียวกัน เร็วสุด)
-        localChannel.onmessage = (ev) => {
-            if(role === 'onair') updateState(ev.data);
-        };
+    // --- 2. NETWORK ENGINE (RETAINED MESSAGES) ---
+    function connectMQTT(role) {
+        console.log(`Connecting to ${CONFIG.roomId} as ${role}`);
+        client = mqtt.connect(CONFIG.broker, { clientId: 'client_' + Math.random().toString(16).substr(2,8) });
 
-        // B. Cloud Sync (ข้ามเครื่อง)
-        client = mqtt.connect(MQTT_HOST, { clientId: 'client_' + Math.random().toString(16).substr(2,8) });
-        
         client.on('connect', () => {
-            document.getElementById('status-indicator').classList.replace('bg-red-500', 'bg-green-500');
-            
+            updateStatus(true);
             if(role === 'control') {
-                // Control: ส่งข้อมูลทันทีที่ต่อติด (Retain)
-                pushUpdate();
+                pushData(); // ส่งข้อมูลทันทีที่ต่อติด (Retain)
             } else {
-                // On-Air: รอรับข้อมูล
-                client.subscribe(`po1/${SYSTEM_ID}`, { qos: 0 });
+                client.subscribe(`po1/ultimate/${CONFIG.roomId}`, { qos: 0 });
             }
         });
 
         client.on('message', (t, msg) => {
-            if(role === 'onair') updateState(JSON.parse(msg.toString()));
+            if(role === 'onair') {
+                const newData = JSON.parse(msg.toString());
+                // ถ้าข้อมูลเปลี่ยน ค่อยเรนเดอร์ (กันกระพริบ)
+                if(JSON.stringify(newData) !== JSON.stringify(state)) {
+                    state = newData;
+                    renderScene();
+                }
+            }
         });
-        
-        client.on('offline', () => document.getElementById('status-indicator').classList.replace('bg-green-500', 'bg-red-500'));
+
+        client.on('offline', () => updateStatus(false));
     }
 
-    function pushUpdate() {
-        // Save -> Local -> Cloud
-        localStorage.setItem('po1_v6_data', JSON.stringify(state));
-        localChannel.postMessage(state);
+    function pushData() {
+        localStorage.setItem('po1_ultimate_data', JSON.stringify(state));
         if(client && client.connected) {
-            client.publish(`po1/${SYSTEM_ID}`, JSON.stringify(state), { qos: 0, retain: true });
+            // Retain: true คือหัวใจสำคัญ ข้อมูลจะค้างอยู่บน Server ใครมาทีหลังก็เห็น
+            client.publish(`po1/ultimate/${CONFIG.roomId}`, JSON.stringify(state), { qos: 0, retain: true });
         }
     }
 
-    function updateState(newData) {
-        // On-Air รับข้อมูลแล้ว Render ใหม่
-        state = newData;
-        if(window.renderScene) window.renderScene();
-    }
-
-    // --- 2. ROUTER & UI ---
+    // --- 3. ROUTER ---
     const app = document.getElementById('app');
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
 
-    if(!mode) {
-        // SELECTOR SCREEN (หน้าแรก)
+    if(!mode) renderMenu();
+    else if(mode === 'control') { renderControl(); connectMQTT('control'); }
+    else if(mode === 'onair') { renderOnAir(); connectMQTT('onair'); }
+
+    // --- 4. MENUS ---
+    function renderMenu() {
         app.innerHTML = `
-            <div class="h-screen w-screen flex items-center justify-center bg-slate-900">
-                <div class="grid grid-cols-2 gap-8 max-w-2xl w-full p-8">
-                    <button onclick="window.location.search='?mode=control'" class="group relative bg-blue-600 hover:bg-blue-500 h-64 rounded-2xl flex flex-col items-center justify-center transition-all transform hover:scale-105 shadow-2xl">
-                        <div class="text-6xl mb-4 group-hover:scale-110 transition">🎛️</div>
-                        <div class="text-2xl font-bold">CONTROL ROOM</div>
-                        <div class="text-blue-200 text-sm mt-2">สำหรับผู้ควบคุมข้อมูล</div>
-                    </button>
-                    <button onclick="window.location.search='?mode=onair'" class="group relative bg-red-600 hover:bg-red-500 h-64 rounded-2xl flex flex-col items-center justify-center transition-all transform hover:scale-105 shadow-2xl">
-                        <div class="text-6xl mb-4 group-hover:scale-110 transition">📺</div>
-                        <div class="text-2xl font-bold">DISPLAY / OBS</div>
-                        <div class="text-red-200 text-sm mt-2">สำหรับจอแสดงผล</div>
-                    </button>
-                    <div class="col-span-2 text-center text-slate-500 text-xs">
-                        SYSTEM ID: ${SYSTEM_ID} • AUTO CONNECT READY
+            <div class="h-screen w-screen flex items-center justify-center bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                <div class="glass p-10 rounded-3xl text-center max-w-2xl w-full shadow-2xl slide-up">
+                    <h1 class="text-6xl font-num font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2">PO1 ULTIMATE</h1>
+                    <p class="text-slate-400 tracking-widest uppercase text-sm mb-8">Professional Election Broadcast System</p>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                        <button onclick="location.href='?mode=control'" class="group h-40 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 hover:border-blue-500 transition-all hover:-translate-y-2 flex flex-col items-center justify-center">
+                            <span class="text-5xl mb-2 group-hover:scale-110 transition">🎛️</span>
+                            <span class="font-bold text-lg text-slate-200">CONTROL ROOM</span>
+                        </button>
+                        <button onclick="location.href='?mode=onair'" class="group h-40 bg-gradient-to-br from-red-900/50 to-slate-900 rounded-2xl border border-red-900 hover:border-red-500 transition-all hover:-translate-y-2 flex flex-col items-center justify-center">
+                            <span class="text-5xl mb-2 group-hover:scale-110 transition">📺</span>
+                            <span class="font-bold text-lg text-red-200">ON-AIR SCREEN</span>
+                        </button>
                     </div>
+                    <div class="mt-8 text-xs text-slate-600 font-mono">ROOM ID: ${CONFIG.roomId}</div>
                 </div>
             </div>
         `;
-    } 
-    else if(mode === 'control') {
-        renderControl();
-        connectNetwork('control');
-    } 
-    else if(mode === 'onair') {
-        renderOnAir();
-        connectNetwork('onair');
     }
 
-    // --- 3. CONTROL UI ---
+    // --- 5. CONTROL ROOM UI ---
     function renderControl() {
         document.title = "CONTROL - PO1";
         
-        window.updateVal = (idx, key, val) => {
-            if(key === 'score') val = parseInt(val) || 0;
-            state.parties[idx][key] = val;
-            renderPartyInputs();
-            pushUpdate();
+        window.updateScore = (idx, val) => {
+            state.parties[idx].score = parseInt(val) || 0;
+            renderPartyRows(); pushData();
         };
-
-        window.setScene = (s) => { state.scene = s; pushUpdate(); updateSceneBtns(); };
-        window.setBg = (b) => { state.bg = b; pushUpdate(); };
+        window.changeScene = (s) => { state.scene = s; pushData(); renderControlUI(); };
+        window.setBg = (v) => { state.bg = v; pushData(); };
 
         app.innerHTML = `
-            <div class="flex h-screen bg-slate-950 text-slate-200 font-sans">
-                <div class="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-4">
-                    <div class="flex items-center gap-3 pb-4 border-b border-slate-800">
-                        <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_currentColor]"></div>
-                        <div class="font-bold text-sm tracking-wider">LIVE CONTROL</div>
-                    </div>
-                    
-                    <div class="space-y-2">
-                        <div class="text-[10px] text-slate-500 font-bold">SCENES</div>
-                        <button id="btn-leaderboard" onclick="setScene('leaderboard')" class="w-full text-left p-3 rounded glass-btn font-bold text-sm">🏆 LEADERBOARD</button>
-                        <button id="btn-vs" onclick="setScene('vs')" class="w-full text-left p-3 rounded glass-btn font-bold text-sm">⚔️ VS MODE</button>
-                        <button id="btn-winner" onclick="setScene('winner')" class="w-full text-left p-3 rounded glass-btn font-bold text-sm">👑 WINNER</button>
+            <div class="flex h-screen bg-slate-900 text-slate-200">
+                <div class="w-72 glass-panel p-5 flex flex-col gap-6">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <div id="status-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <span class="font-bold text-sm tracking-wider text-slate-400">STATUS</span>
+                        </div>
+                        <div class="text-xs font-mono text-slate-500">${CONFIG.roomId}</div>
                     </div>
 
-                    <div class="mt-auto pt-4 border-t border-slate-800 space-y-4">
-                        <div>
-                            <div class="text-[10px] text-slate-500 font-bold mb-1">BACKGROUND (OBS)</div>
-                            <select onchange="setBg(this.value)" class="w-full bg-slate-800 p-2 rounded text-xs border border-slate-700">
-                                <option value="dark">Standard Dark</option>
-                                <option value="transparent">Transparent (โปร่งใส)</option>
-                            </select>
+                    <div>
+                        <h3 class="text-xs font-bold text-blue-400 mb-3 uppercase tracking-wider">Visual Scenes</h3>
+                        <div class="space-y-2">
+                            <button id="btn-dashboard" onclick="changeScene('dashboard')" class="scene-btn">📊 Dashboard (Main)</button>
+                            <button id="btn-chart" onclick="changeScene('chart')" class="scene-btn">🍩 Donut Chart (Seats)</button>
+                            <button id="btn-parliament" onclick="changeScene('parliament')" class="scene-btn">🏛️ Parliament (Arch)</button>
+                            <button id="btn-winner" onclick="changeScene('winner')" class="scene-btn">🏆 Winner Reveal</button>
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-500 font-bold mb-1">TICKER</div>
-                            <textarea oninput="state.ticker=this.value; pushUpdate()" class="w-full bg-slate-800 p-2 rounded text-xs border border-slate-700 h-16 resize-none">${state.ticker}</textarea>
-                        </div>
-                        <a href="?mode=onair" target="_blank" class="block text-center py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-400">🔗 เปิดหน้าจอแสดงผล</a>
+                    </div>
+
+                    <div class="mt-auto pt-6 border-t border-slate-700">
+                         <h3 class="text-xs font-bold text-slate-500 mb-2 uppercase">Settings</h3>
+                         <select onchange="setBg(this.value)" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-xs mb-3 text-white">
+                            <option value="dark">Dark Theme</option>
+                            <option value="transparent">Transparent (OBS)</option>
+                         </select>
+                         <textarea oninput="state.ticker=this.value; pushData();" class="w-full h-20 bg-slate-800 border border-slate-600 rounded p-2 text-xs text-white placeholder-slate-500" placeholder="Ticker Text...">${state.ticker}</textarea>
+                         <a href="?mode=onair" target="_blank" class="block mt-3 text-center text-xs text-blue-400 hover:text-blue-300">Open Display →</a>
                     </div>
                 </div>
 
-                <div class="flex-1 p-8 overflow-y-auto">
-                    <div id="party-list" class="max-w-3xl mx-auto space-y-3"></div>
+                <div class="flex-1 p-8 overflow-y-auto bg-slate-950">
+                    <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                        <span>📝</span> Live Scoring
+                    </h2>
+                    <div id="party-rows" class="space-y-3 max-w-4xl"></div>
                 </div>
             </div>
+            <style>.scene-btn { width:100%; text-align:left; padding:12px; border-radius:8px; background:rgba(255,255,255,0.03); border:1px solid transparent; transition:0.2s; font-size:0.9rem; } .scene-btn:hover { background:rgba(255,255,255,0.08); } .scene-btn.active { background: #1e3a8a; border-color: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }</style>
         `;
-        renderPartyInputs();
-        updateSceneBtns();
+        renderPartyRows();
+        renderControlUI();
     }
 
-    function renderPartyInputs() {
-        const sorted = state.parties.map((p, i) => ({...p, originalIndex: i})).sort((a,b) => b.score - a.score);
-        
-        document.getElementById('party-list').innerHTML = sorted.map((p) => `
-            <div class="bg-slate-900 p-4 rounded-xl border-l-4 flex items-center gap-4 shadow-lg" style="border-color: ${p.color}">
-                <input type="color" value="${p.color}" onchange="updateVal(${p.originalIndex}, 'color', this.value)" class="w-10 h-10 rounded bg-transparent border-0 cursor-pointer">
-                <input type="text" value="${p.name}" oninput="updateVal(${p.originalIndex}, 'name', this.value)" class="flex-1 bg-transparent text-xl font-bold focus:outline-none placeholder-slate-600">
-                <div class="bg-black/30 rounded-lg p-1 flex items-center">
-                    <button onclick="updateVal(${p.originalIndex}, 'score', ${p.score - 1})" class="w-8 h-8 hover:bg-white/10 rounded font-bold">-</button>
-                    <input type="number" value="${p.score}" oninput="updateVal(${p.originalIndex}, 'score', this.value)" class="w-20 bg-transparent text-center font-mono text-2xl font-bold focus:outline-none">
-                    <button onclick="updateVal(${p.originalIndex}, 'score', ${p.score + 1})" class="w-8 h-8 hover:bg-white/10 rounded font-bold">+</button>
+    function renderPartyRows() {
+        const sorted = state.parties.map((p,i)=>({p,i})).sort((a,b)=>b.p.score - a.p.score);
+        document.getElementById('party-rows').innerHTML = sorted.map(({p, i}) => `
+            <div class="bg-slate-900 p-4 rounded-xl border-l-4 flex items-center gap-4 shadow-lg transition-all hover:bg-slate-800" style="border-color:${p.color}">
+                <div class="w-8 h-8 rounded-full shadow-inner" style="background:${p.color}"></div>
+                <div class="flex-1">
+                    <div class="text-lg font-bold">${p.name}</div>
+                </div>
+                <div class="flex items-center bg-black/40 rounded-lg p-1">
+                    <button onclick="updateScore(${i}, ${p.score-1})" class="w-10 h-10 hover:bg-white/10 rounded text-slate-400 font-bold text-xl">-</button>
+                    <input type="number" value="${p.score}" oninput="updateScore(${i}, this.value)" class="w-24 bg-transparent text-center font-num font-bold text-3xl text-white focus:outline-none">
+                    <button onclick="updateScore(${i}, ${p.score+1})" class="w-10 h-10 hover:bg-white/10 rounded text-green-400 font-bold text-xl">+</button>
                 </div>
             </div>
         `).join('');
     }
 
-    function updateSceneBtns() {
-        document.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active-scene'));
-        document.getElementById(`btn-${state.scene}`)?.classList.add('active-scene');
+    function renderControlUI() {
+        document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`btn-${state.scene}`)?.classList.add('active');
     }
 
-    // --- 4. ON-AIR UI ---
-    function renderOnAir() {
-        document.title = "ON AIR DISPLAY";
-        app.innerHTML = `
-            <div id="viz-wrapper" class="w-full h-full flex flex-col bg-slate-950 transition-colors duration-500">
-                <div id="status-indicator" class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 z-50 obs-hide"></div>
-                
-                <div id="viz-container" class="flex-1 flex items-center justify-center p-10 relative overflow-hidden"></div>
+    function updateStatus(online) {
+        const dot = document.getElementById('status-dot');
+        if(dot) {
+            dot.className = `w-3 h-3 rounded-full transition-colors ${online ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-red-500'}`;
+        }
+    }
 
-                <div class="h-16 bg-slate-900 border-t border-slate-800 flex items-center shadow-2xl relative z-40 shrink-0">
-                    <div class="bg-red-600 h-full px-6 flex items-center justify-center font-bold text-lg tracking-widest shrink-0">LIVE</div>
-                    <div class="flex-1 ticker-wrap text-2xl font-display text-slate-300">
-                        <div id="ticker-text" class="ticker"></div>
+    // --- 6. ON-AIR DISPLAY (THE VISUALS) ---
+    function renderOnAir() {
+        document.title = "ON AIR";
+        app.innerHTML = `
+            <div id="main-bg" class="w-full h-full flex flex-col bg-main bg-slate-950 transition-colors duration-500 overflow-hidden relative">
+                <div class="absolute top-6 right-6 flex flex-col items-end z-20 obs-hide">
+                    <div class="flex items-center gap-2 bg-black/60 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
+                        <div class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div>
+                        <span class="text-[10px] font-bold text-white tracking-widest">LIVE DATA</span>
+                    </div>
+                </div>
+
+                <div id="scene-area" class="flex-1 relative flex items-center justify-center p-12"></div>
+
+                <div class="h-20 bg-slate-900 border-t border-slate-800 flex items-center shadow-2xl relative z-30 shrink-0">
+                    <div class="bg-gradient-to-r from-red-700 to-red-600 h-full px-8 flex flex-col justify-center items-center shrink-0 relative overflow-hidden">
+                        <span class="font-num font-bold text-2xl text-white tracking-widest relative z-10">BREAKING</span>
+                        <div class="absolute inset-0 bg-white/10 animate-pulse"></div>
+                    </div>
+                    <div class="flex-1 ticker-wrap bg-slate-950/50 h-full flex items-center">
+                        <div id="ticker-text" class="ticker text-2xl font-light text-slate-200 px-4 pt-1"></div>
+                    </div>
+                    <div class="px-6 h-full flex flex-col justify-center items-end bg-slate-900 border-l border-slate-800 min-w-[150px]">
+                        <div class="text-[10px] text-slate-500 uppercase tracking-wider">Total Seats</div>
+                        <div class="text-3xl font-num font-bold text-blue-400 leading-none">500</div>
                     </div>
                 </div>
             </div>
         `;
-        window.renderScene();
+        renderScene();
     }
 
-    window.renderScene = () => {
-        // 1. Update Background
-        const wrapper = document.getElementById('viz-wrapper');
-        if(state.bg === 'transparent') {
-            document.body.classList.add('transparent-mode');
-            wrapper.style.backgroundColor = 'transparent';
-        } else {
-            document.body.classList.remove('transparent-mode');
-            wrapper.style.backgroundColor = '#020617';
-        }
-
-        // 2. Update Ticker
+    function renderScene() {
+        // 1. Background Logic
+        const bg = document.getElementById('main-bg');
+        if(state.bg === 'transparent') document.body.classList.add('transparent');
+        else document.body.classList.remove('transparent');
+        
+        // 2. Ticker
         document.getElementById('ticker-text').innerText = state.ticker;
 
-        // 3. Render Scene
-        const container = document.getElementById('viz-container');
-        container.innerHTML = '';
-        
-        const sorted = [...state.parties].sort((a,b) => b.score - a.score);
+        // 3. Render Content
+        const container = document.getElementById('scene-area');
+        const sorted = [...state.parties].sort((a,b)=>b.score - a.score);
 
-        if(state.scene === 'leaderboard') drawLeaderboard(container, sorted);
-        else if(state.scene === 'vs') drawVS(container, sorted);
-        else if(state.scene === 'winner') drawWinner(container, sorted);
+        // Destroy Chart if exists (Prevent memory leaks)
+        if(myChart) { myChart.destroy(); myChart = null; }
+        
+        container.innerHTML = ''; // Clear
+
+        switch(state.scene) {
+            case 'dashboard': drawDashboard(container, sorted); break;
+            case 'chart': drawChart(container, sorted); break;
+            case 'parliament': drawParliament(container, sorted); break;
+            case 'winner': drawWinner(container, sorted); break;
+        }
     }
 
-    // --- VISUALIZATIONS ---
+    // --- VISUAL SCENES ---
 
-    function drawLeaderboard(el, parties) {
-        let html = `<div class="w-full max-w-5xl space-y-4">`;
+    // SCENE 1: MAIN DASHBOARD (BARS)
+    function drawDashboard(el, parties) {
+        let html = `<div class="w-full max-w-6xl grid grid-cols-2 gap-x-12 gap-y-6 slide-up">`;
         parties.forEach((p, i) => {
-            const pct = (p.score / 500) * 100; // สมมติเต็ม 500
+            const pct = (p.score / 500) * 100; // สมมติ 500 เต็ม
             html += `
-                <div class="glass p-4 rounded-xl flex items-center gap-6 relative overflow-hidden">
-                    <div class="font-mono text-4xl font-bold text-slate-500 w-12 text-center">${i+1}</div>
+                <div class="glass p-5 rounded-2xl flex items-center gap-5 relative overflow-hidden group">
+                    <div class="font-num text-4xl font-bold text-slate-600 w-10 text-center">${i+1}</div>
+                    <div class="w-14 h-14 rounded-xl shadow-lg flex-shrink-0" style="background:${p.color}"></div>
                     <div class="flex-1 z-10">
                         <div class="flex justify-between items-end mb-2">
-                            <h2 class="text-3xl font-display font-bold text-white">${p.name}</h2>
-                            <span class="text-4xl font-mono font-bold num-pop" style="color:${p.color}">${p.score}</span>
+                            <h2 class="text-2xl font-bold text-white truncate">${p.name}</h2>
+                            <span class="text-4xl font-num font-bold text-white drop-shadow-md">${p.score}</span>
                         </div>
-                        <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden">
-                            <div class="h-full bar-fill" style="width:${pct}%; background:${p.color}; box-shadow: 0 0 15px ${p.color}"></div>
+                        <div class="w-full h-3 bg-slate-800/80 rounded-full overflow-hidden backdrop-blur-sm">
+                            <div class="h-full rounded-full transition-all duration-1000 ease-out" style="width:${pct}%; background:${p.color}; box-shadow: 0 0 10px ${p.color}"></div>
                         </div>
                     </div>
+                    <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-gradient-to-br from-${p.color} to-transparent opacity-10 blur-3xl rounded-full group-hover:opacity-20 transition"></div>
                 </div>
             `;
         });
@@ -289,37 +322,96 @@
         el.innerHTML = html;
     }
 
-    function drawVS(el, parties) {
-        const p1 = parties[0];
-        const p2 = parties[1];
-        if(!p1 || !p2) return;
-
-        const card = (p) => `
-            <div class="flex-1 glass p-8 rounded-2xl flex flex-col items-center justify-center border-t-8" style="border-color:${p.color}">
-                <h2 class="text-4xl font-display font-bold mb-4 text-center">${p.name}</h2>
-                <div class="text-[140px] font-mono font-bold leading-none num-pop" style="color:${p.color}; text-shadow:0 0 40px ${p.color}40">${p.score}</div>
-            </div>
-        `;
-
+    // SCENE 2: DONUT CHART (GRAPH)
+    function drawChart(el, parties) {
+        // ใช้ Chart.js วาดกราฟจริง
         el.innerHTML = `
-            <div class="flex items-center gap-12 w-full max-w-6xl">
-                ${card(p1)}
-                <div class="text-6xl font-bold font-display italic text-slate-600">VS</div>
-                ${card(p2)}
+            <div class="glass p-8 rounded-3xl flex flex-col items-center justify-center slide-up border border-white/10 shadow-2xl bg-slate-900/80">
+                <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest border-b border-white/10 pb-4 w-full text-center">Parliament Composition</h2>
+                <div style="width: 500px; height: 500px;">
+                    <canvas id="seatsChart"></canvas>
+                </div>
             </div>
         `;
+        
+        const ctx = document.getElementById('seatsChart').getContext('2d');
+        const data = {
+            labels: parties.map(p => p.name),
+            datasets: [{
+                data: parties.map(p => p.score),
+                backgroundColor: parties.map(p => p.color),
+                borderWidth: 0,
+                hoverOffset: 20
+            }]
+        };
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: 'white', font: { family: 'Anuphan', size: 14 }, padding: 20 } },
+                    datalabels: { color: '#fff', font: { weight: 'bold', size: 16 } }
+                },
+                animation: { animateScale: true, animateRotate: true }
+            },
+            plugins: [ChartDataLabels]
+        });
     }
 
+    // SCENE 3: PARLIAMENT ARCH (CANVAS DRAWING)
+    function drawParliament(el, parties) {
+        // สร้างจุดแบบรัฐสภา
+        let dots = []; let idx = 0;
+        let colorMap = []; parties.forEach(p=>{ for(let i=0;i<p.score;i++) colorMap.push(p.color); });
+        
+        for(let r=0; r<12; r++) {
+            const radius = 35 + (r * 4.5);
+            const count = Math.floor(18 + r * 5); 
+            const step = 180/(count-1);
+            for(let a=0; a<count; a++) {
+                if(idx>=500) break;
+                const rad = (180-(a*step))*(Math.PI/180);
+                dots.push({ x: 50+radius*Math.cos(rad), y: 90-radius*Math.sin(rad), c: colorMap[idx]||'#334155' });
+                idx++;
+            }
+        }
+
+        let html = `<div class="relative w-[1100px] aspect-[2/1] slide-up">`;
+        dots.forEach(d => {
+            html += `<div class="absolute w-[1.2%] pb-[1.2%] rounded-full transition-all duration-500" style="left:${d.x}%; top:${d.y}%; background:${d.c}; transform:translate(-50%,-50%); box-shadow: 0 0 4px ${d.c}88"></div>`;
+        });
+        
+        // Leader Info
+        const leader = parties[0];
+        html += `
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center glass px-12 py-6 rounded-2xl border border-white/10 shadow-2xl backdrop-blur-xl mb-4">
+                <div class="text-xs text-slate-400 uppercase tracking-widest mb-2">Current Leader</div>
+                <h1 class="text-6xl font-bold text-white mb-2 drop-shadow-lg">${leader.name}</h1>
+                <div class="text-8xl font-num font-bold" style="color:${leader.color}; text-shadow: 0 0 30px ${leader.color}66">${leader.score}</div>
+            </div>
+        `;
+        html += `</div>`;
+        el.innerHTML = html;
+    }
+
+    // SCENE 4: WINNER (CONFETTI STYLE)
     function drawWinner(el, parties) {
         const w = parties[0];
         el.innerHTML = `
-            <div class="text-center relative">
-                <div class="absolute inset-0 bg-${w.color} blur-[120px] opacity-20"></div>
-                <div class="glass p-16 rounded-3xl border border-white/20 shadow-2xl relative z-10">
-                    <div class="text-8xl mb-6 animate-bounce">🏆</div>
-                    <div class="text-2xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">UNOFFICIAL WINNER</div>
-                    <h1 class="text-7xl font-display font-bold text-white mb-6">${w.name}</h1>
-                    <div class="text-[10rem] font-mono font-bold leading-none num-pop" style="color:${w.color}">${w.score}</div>
+            <div class="text-center relative z-10 slide-up">
+                <div class="absolute inset-0 bg-${w.color} blur-[120px] opacity-20 z-0"></div>
+                <div class="glass p-16 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/60 backdrop-blur-2xl">
+                    <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">👑</div>
+                    <div class="text-2xl font-bold text-slate-300 tracking-[0.6em] mb-4 uppercase">Projected Winner</div>
+                    <h1 class="text-9xl font-bold text-white mb-8 drop-shadow-2xl">${w.name}</h1>
+                    <div class="inline-block bg-white/10 px-8 py-2 rounded-full border border-white/10">
+                        <span class="text-4xl font-num font-bold text-white">TOTAL SEATS: </span>
+                        <span class="text-6xl font-num font-bold ml-2" style="color:${w.color}">${w.score}</span>
+                    </div>
                 </div>
             </div>
         `;
