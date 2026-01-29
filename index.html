@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ElectionOS V4 - Final Broadcast</title>
+    <title>ElectionOS V4 - Final Control</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,6 +20,7 @@
             --accent-glow: rgba(59, 130, 246, 0.4);
             --danger: #ef4444;
             --success: #10b981;
+            --progress-color: #22c55e;
             --text-main: #f4f4f5;
             --text-muted: #a1a1aa;
 
@@ -48,8 +49,8 @@
         /* --- DIRECTOR LAYOUT --- */
         #director-app {
             display: grid;
-            grid-template-columns: 280px 1fr;
-            grid-template-rows: 64px 1fr;
+            grid-template-columns: 300px 1fr; /* Sidebar slightly wider */
+            grid-template-rows: 70px 1fr;
             height: 100vh;
             background: var(--bg-deep);
         }
@@ -106,11 +107,24 @@
         .btn-update-ticker:hover { filter: brightness(1.1); transform: translateY(-1px); }
         .btn-update-ticker:active { transform: translateY(1px); }
 
+        /* Manual Progress Input (Sidebar Style) */
+        .progress-control-box {
+            background: var(--bg-input); padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+        }
+        .progress-label-dir { font-size: 0.8rem; color: #aaa; font-weight: 600; text-transform: uppercase; }
+        .progress-input-wrapper { display: flex; align-items: center; gap: 5px; }
+        .manual-progress-input {
+            width: 50px; background: #000; border: 1px solid var(--border); color: var(--success);
+            font-family: var(--font-mono); font-weight: 700; font-size: 1.1rem; text-align: center;
+            border-radius: 4px; padding: 4px;
+        }
+
         /* --- PARTY ROW --- */
         .party-list-container { display: flex; flex-direction: column; gap: 10px; }
         .party-card {
             display: grid;
-            grid-template-columns: 24px 1fr auto auto 40px;
+            grid-template-columns: 24px 1fr auto auto 40px 40px;
             gap: 16px; align-items: center;
             background: var(--bg-card); 
             padding: 10px 20px; 
@@ -120,49 +134,34 @@
         }
         .party-card:hover { border-color: rgba(255,255,255,0.3); }
 
-        .party-name {
-            font-size: 1rem; font-weight: 600; color: white;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+        .party-name { font-size: 1rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .control-pill {
             display: flex; align-items: center;
-            background: var(--bg-input);
-            border-radius: 8px;
-            padding: 3px;
-            border: 1px solid var(--border);
+            background: var(--bg-input); border-radius: 8px; padding: 3px; border: 1px solid var(--border);
         }
         .control-label {
             font-size: 0.7rem; color: var(--text-muted); font-weight: 600;
-            padding: 0 10px 0 6px;
-            border-right: 1px solid rgba(255,255,255,0.1);
-            margin-right: 4px;
+            padding: 0 10px 0 6px; border-right: 1px solid rgba(255,255,255,0.1); margin-right: 4px;
         }
         
         .btn-circle {
-            width: 28px; height: 28px;
-            background: #3f3f46; color: white;
-            border: none; border-radius: 6px;
-            font-size: 1rem; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: background 0.2s;
+            width: 28px; height: 28px; background: #3f3f46; color: white; border: none; border-radius: 6px;
+            font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;
         }
         .btn-circle:hover { background: var(--accent); }
         
         .input-num {
-            width: 40px; background: transparent; border: none;
-            color: white; text-align: center; font-family: var(--font-mono);
-            font-weight: 700; font-size: 1rem;
+            width: 40px; background: transparent; border: none; color: white; text-align: center; font-family: var(--font-mono); font-weight: 700; font-size: 1rem;
         }
 
+        .checkbox-custom { width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
         .btn-del { background: transparent; border: none; color: #52525b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
         .btn-del:hover { color: var(--danger); }
 
         .stats-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
         .stat-badge {
-            background: rgba(59, 130, 246, 0.1); color: var(--accent);
-            padding: 4px 10px; border-radius: 6px; font-weight: 600; font-family: var(--font-mono);
-            border: 1px solid rgba(59, 130, 246, 0.2); font-size: 0.85rem;
+            background: rgba(59, 130, 246, 0.1); color: var(--accent); padding: 4px 10px; border-radius: 6px; font-weight: 600; font-family: var(--font-mono); border: 1px solid rgba(59, 130, 246, 0.2); font-size: 0.85rem;
         }
         .stat-badge.full { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
 
@@ -175,12 +174,8 @@
         }
         .bg-grid {
             position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 80px 80px;
-            transform: perspective(1000px) rotateX(20deg);
-            z-index: 0; pointer-events: none;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 80px 80px; transform: perspective(1000px) rotateX(20deg); z-index: 0; pointer-events: none;
         }
         .oa-header {
             position: absolute; top: 0; left: 0; width: 100%; height: 90px;
@@ -191,112 +186,78 @@
         .scene {
             position: absolute; top: 90px; bottom: 70px; left: 0; width: 100%;
             display: flex; align-items: center; justify-content: center;
-            opacity: 0; 
-            transform: scale(1.02); 
-            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-            pointer-events: none;
+            opacity: 0; transform: scale(1.02); transition: opacity 0.5s ease-out, transform 0.5s ease-out; pointer-events: none;
         }
-        .scene.active { 
-            opacity: 1; 
-            transform: scale(1); 
-            pointer-events: auto;
-        }
+        .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
 
-        /* --- DASHBOARD REDESIGN (Dynamic Motion) --- */
+        /* --- DASHBOARD REDESIGN --- */
         .dash-layout { 
-            display: grid; 
-            grid-template-columns: 45% 55%; 
+            display: grid; grid-template-columns: 45% 55%; 
             width: 90%; max-width: 1800px; height: 100%; align-items: center; 
-            margin: 0 auto;
-            gap: 50px;
+            margin: 0 auto; gap: 50px;
         }
         
-        #dash-bars {
-            position: relative; width: 100%; height: 600px; /* Space for bars to fly */
-        }
+        #dash-bars { position: relative; width: 100%; height: 600px; }
 
         .party-bar {
-            position: absolute; /* Allows flying motion */
-            left: 0; right: 0;
-            height: 58px; 
-            display: flex; align-items: center; padding: 0 20px; justify-content: space-between; 
-            border-radius: 6px;
-            background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%);
+            position: absolute; left: 0; right: 0;
+            height: 58px; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; 
+            border-radius: 6px; background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%);
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            /* Smooth transitions for sort reordering */
             transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s;
         }
         
+        .scene.active .party-bar.entrance { animation: slideIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+
         .party-bar-indicator { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; border-radius: 4px 0 0 4px; }
         .bar-name { font-size: 1.6rem; font-weight: 600; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); padding-left: 20px; }
         .bar-val { font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: white; position: relative; z-index: 2; transition: transform 0.2s; }
 
-        /* --- SHARED GLOW EFFECT --- */
+        /* --- GLOW EFFECT --- */
         .update-glow {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 100%; height: 100%; border-radius: 50%;
-            background: var(--glow-color);
-            filter: blur(25px); opacity: 0; z-index: -1; pointer-events: none;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; border-radius: 50%;
+            background: var(--glow-color); filter: blur(25px); opacity: 0; z-index: -1; pointer-events: none;
         }
         .updating .update-glow { animation: glowPulse 0.8s ease-out; }
+        @keyframes glowPulse { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(2); } }
 
-        @keyframes glowPulse {
-            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.5); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
-        }
-
-        /* Hemicycle Wrapper */
-        .hemi-wrapper {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; transform: scale(0.9); height: 100%;
-        }
+        /* Hemicycle */
+        .hemi-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.9); height: 100%; }
         .scene.active .hemi-wrapper { animation: scaleIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; animation-delay: 0.2s; }
         @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
-        
         #dash-hemi { max-width: 100%; height: auto; filter: drop-shadow(0 0 25px rgba(0,0,0,0.4)); }
         .hemi-info { position: absolute; bottom: 20px; text-align: center; }
         .big-number { font-family: var(--font-mono); font-size: 8rem; font-weight: 800; line-height: 0.8; color: white; text-shadow: 0 0 60px rgba(255,255,255,0.15); }
         .big-label { font-size: 1.4rem; letter-spacing: 4px; color: var(--text-muted); font-weight: 600; margin-top: 10px; }
         
-        /* --- TOP 3 PODIUM (Motion) --- */
-        .top3-container { 
-            position: relative; width: 90%; height: 75%; max-width: 1400px;
-        }
+        /* --- TOP 3 PODIUM --- */
+        .top3-container { position: relative; width: 100%; height: 75%; max-width: 1200px; margin: 0 auto; }
         .top3-card {
-            position: absolute; bottom: 0;
-            width: 30%; /* 3 cards take up space */
+            position: absolute; bottom: 0; width: 300px;
             background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0.8) 100%);
-            border: 1px solid rgba(255,255,255,0.15); border-bottom: none; 
-            border-radius: 20px 20px 0 0;
+            border: 1px solid rgba(255,255,255,0.15); border-bottom: none; border-radius: 20px 20px 0 0;
             display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
-            padding-top: 40px; 
-            /* Motion Transitions */
-            transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.6s ease, border-color 0.4s;
+            backdrop-filter: blur(20px); box-shadow: 0 -10px 40px rgba(0,0,0,0.3); padding-top: 40px; 
+            transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.6s ease;
         }
         
-        /* Entrance animation for scene switch */
         .scene.active .top3-card.entrance { animation: popUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
         @keyframes popUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .top3-score { font-size: 6.5rem; font-family: var(--font-mono); font-weight: 800; color: white; text-shadow: 0 4px 20px rgba(0,0,0,0.5); position: relative; }
         .top3-score .update-glow { width: 120%; height: 120%; filter: blur(40px); }
 
-        /* --- ALL STATS SCENE (Absolute Grid for Motion) --- */
+        /* --- ALL STATS SCENE (Perfect Absolute Center) --- */
         .all-stats-container {
-            position: relative;
-            width: 95%; max-width: 1700px; height: 85%; 
-            margin: 0 auto;
+            position: relative; width: 100%; height: 100%; margin: 0 auto;
         }
         .stat-card {
-            position: absolute; /* Absolute for flying sorting */
+            position: absolute; 
             background: #18181b; border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px; padding: 24px; display: flex; flex-direction: column;
             overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             width: 320px; height: 180px;
-            /* Smooth fly transition */
             transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .stat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -318,7 +279,6 @@
             display: flex;
         }
         .coalition-segment { height: 100%; transition: width 0.5s ease-out; position: relative; }
-        /* Add slight separator */
         .coalition-segment::after { content:''; position: absolute; right:0; top:0; height:100%; width:1px; background:rgba(0,0,0,0.3); }
         
         .majority-line {
@@ -331,14 +291,12 @@
             font-weight: 800; font-size: 1rem; font-family: var(--font-mono);
         }
 
-        .coalition-legend {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%;
-        }
+        .coalition-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; }
         .legend-item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 10px 20px; border-radius: 30px; }
         .legend-name { font-weight: 600; font-size: 1.2rem; }
         .legend-val { font-family: var(--font-mono); color: var(--text-muted); font-weight: 700; font-size: 1.2rem; }
 
-        /* --- TICKER & PROGRESS --- */
+        /* --- TICKER & PROGRESS BAR --- */
         .ticker-bar {
             position: absolute; bottom: 0; width: 100%; height: 60px; background: #000; 
             border-top: 2px solid var(--accent);
@@ -348,20 +306,23 @@
             white-space: nowrap; position: absolute;
             color: white; font-size: 1.8rem; font-weight: 400;
             animation: marquee 25s linear infinite; padding-left: 0; 
-            will-change: transform;
-            height: 100%; display: flex; align-items: center; padding-top: 4px;
+            will-change: transform; height: 100%; display: flex; align-items: center; padding-top: 4px;
         }
         @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
 
-        /* Progress Indicator (Bottom Left) */
+        /* Independent Progress Bar (Bottom Left - Floating) */
         .progress-float {
-            position: absolute; bottom: 65px; left: 35px; z-index: 110;
-            font-family: var(--font-mono); font-weight: 700; color: var(--accent); 
-            background: #000; border: 1px solid var(--accent);
-            padding: 4px 10px; border-radius: 4px; display: flex; gap: 8px; align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            position: absolute; bottom: 70px; left: 40px; z-index: 110;
+            background: rgba(0,0,0,0.9); border: 1px solid rgba(255,255,255,0.15);
+            padding: 10px 15px; border-radius: 8px; width: 280px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
-        .progress-float span { font-family: var(--font-ui); font-size: 0.8rem; opacity: 0.8; letter-spacing: 1px; color: white; }
+        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .progress-label { font-size: 0.8rem; color: #aaa; letter-spacing: 2px; font-weight: 700; }
+        .progress-pct { font-family: var(--font-mono); font-weight: 700; color: var(--progress-color); font-size: 1.1rem; }
+        
+        .progress-track { width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--progress-color); width: 0%; transition: width 0.5s ease-out; box-shadow: 0 0 15px var(--progress-color); }
 
     </style>
 </head>
@@ -372,7 +333,7 @@
         <header class="dir-header">
             <div class="logo-text">ELECTION<span class="logo-accent">OS</span> V4</div>
             <div class="flex items-center gap-2">
-                <div id="d-clock" class="font-mono" style="color:#71717a; font-size:0.9rem;">00:00:00</div>
+                <div id="d-clock" class="font-mono" style="color:#71717a; font-size:0.9rem; margin-right:20px;">00:00:00</div>
                 <button onclick="openOnAir()" style="background:var(--text-main); color:black; border:none; padding:8px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-family:var(--font-ui);">เปิดจอ ON-AIR</button>
             </div>
         </header>
@@ -387,6 +348,15 @@
             </div>
             
             <div style="margin-top:auto;">
+                <!-- Manual Progress Input (Moved Here) -->
+                <div class="progress-control-box">
+                    <span class="progress-label-dir">COUNTING PROGRESS</span>
+                    <div class="progress-input-wrapper">
+                        <input type="number" id="dir-progress-input" class="manual-progress-input" value="0" min="0" max="100" onchange="updateProgress(this.value)">
+                        <span style="color:#fff; font-weight:bold;">%</span>
+                    </div>
+                </div>
+
                 <label style="color:#71717a; font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block; margin-bottom:12px;">TICKER (ตัววิ่ง)</label>
                 <textarea id="ticker-temp-input" placeholder="พิมพ์ข้อความที่นี่..." style="width:100%; background:var(--bg-input); border:1px solid var(--border); color:white; padding:12px; border-radius:12px; height:80px; font-family:'Prompt'; outline:none; resize:none; font-size:0.9rem;"></textarea>
                 <button onclick="submitTicker()" class="btn-update-ticker">ส่งข้อความขึ้นจอ</button>
@@ -433,14 +403,16 @@
             </div>
         </div>
 
-        <!-- Scene 2: Top 3 (Motion) -->
+        <!-- Scene 2: Top 3 (Calculated Center) -->
         <div id="scene-top3" class="scene">
             <div id="top3-list" class="top3-container">
-                <!-- Elements created by JS -->
+                <div id="top3-slot-rank2" class="top3-card rank-2 entrance"></div>
+                <div id="top3-slot-rank1" class="top3-card rank-1 entrance"></div>
+                <div id="top3-slot-rank3" class="top3-card rank-3 entrance"></div>
             </div>
         </div>
 
-        <!-- Scene 3: All Stats (Centered Absolute Grid) -->
+        <!-- Scene 3: All Stats (Calculated Center Grid) -->
         <div id="scene-all_stats" class="scene">
             <div class="flex-col items-center w-full" style="height:100%;">
                  <h2 style="font-family:var(--font-ui); font-size:2.5rem; margin-bottom:20px; font-weight:700; color:white; text-shadow:0 4px 10px rgba(0,0,0,0.5);">สรุปผลคะแนนอย่างไม่เป็นทางการ</h2>
@@ -452,22 +424,24 @@
         <div id="scene-coalition" class="scene">
             <div class="coalition-container">
                 <h2 style="font-family:var(--font-ui); font-size:3rem; margin-bottom:40px; font-weight:400; letter-spacing:2px; text-align:center;">PARLIAMENT COMPOSITION</h2>
-                
-                <!-- Tube Graph -->
                 <div class="coalition-bar-wrapper">
                     <div class="majority-line"></div>
                     <div class="majority-label">250</div>
                     <div id="coalition-bar-inner" style="width:100%; height:100%; display:flex;"></div>
                 </div>
-
                 <div id="coalition-legend" class="coalition-legend"></div>
             </div>
         </div>
 
-        <!-- Independent Progress Indicator -->
+        <!-- Progress Bar (Floating Bottom Left) -->
         <div class="progress-float">
-            <span>COUNTED:</span>
-            <div id="oa-progress-val">0%</div>
+            <div class="progress-header">
+                <span class="progress-label">COUNTED:</span>
+                <span id="oa-progress-val" class="progress-pct">0%</span>
+            </div>
+            <div class="progress-track">
+                <div id="oa-progress-fill" class="progress-fill"></div>
+            </div>
         </div>
 
         <div class="ticker-bar">
@@ -479,7 +453,7 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'election_v4_final_motion';
+        const STORAGE_KEY = 'election_v4_final_complete';
         const CHANNEL_NAME = 'election_os_channel';
         const isDirector = !location.search.includes('mode=onair');
         
@@ -490,6 +464,7 @@
 
         let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
             scene: 'dashboard',
+            progress: 0,
             ticker: 'เกาะติดผลการเลือกตั้ง 2569 อย่างไม่เป็นทางการ - รายงานสดจากศูนย์ข้อมูล ElectionOS...',
             parties: [
                 { id: 'p1', name: 'ก้าวไกล', color: '#f97316', const: 150, list: 40, coal: true },
@@ -524,6 +499,13 @@
                 loopRender();    
                 updateOnAir(true); 
                 
+                // Recalculate layout on resize for perfect centering
+                window.addEventListener('resize', () => {
+                    if (state.scene === 'all_stats' || state.scene === 'top3') {
+                        updateOnAir(false);
+                    }
+                });
+
                 broadcast.onmessage = (event) => {
                     const newState = event.data;
                     const sceneChanged = newState.scene !== currentScene;
@@ -556,13 +538,11 @@
         }
         
         function triggerUpdateEffect(partyId, color) {
-            // Apply glow effect to all relevant elements
             const targets = [
                 document.querySelector(`#bar-${partyId} .bar-val`),
                 document.getElementById(`stat-total-${partyId}`),
                 document.getElementById(`top3-val-${partyId}`)?.closest('.top3-score')
             ];
-            
             targets.forEach(el => {
                 if(el) {
                     el.style.setProperty('--glow-color', color);
@@ -576,7 +556,10 @@
         // --- DIRECTOR LOGIC ---
         function renderDirector(fullRender = true) {
             document.querySelectorAll('.scene-btn').forEach(b => b.classList.toggle('active', b.dataset.s === state.scene));
-            if(fullRender) document.getElementById('ticker-temp-input').value = state.ticker;
+            if(fullRender) {
+                document.getElementById('ticker-temp-input').value = state.ticker;
+                document.getElementById('dir-progress-input').value = state.progress;
+            }
 
             const totalConst = state.parties.reduce((sum, p) => sum + p.const, 0);
             const totalList = state.parties.reduce((sum, p) => sum + p.list, 0);
@@ -603,6 +586,7 @@
         }
 
         function setScene(s) { state.scene = s; save(); }
+        function updateProgress(val) { state.progress = val; save(); }
         function submitTicker() {
             state.ticker = document.getElementById('ticker-temp-input').value;
             save();
@@ -639,7 +623,6 @@
         // --- ON-AIR LOGIC ---
         function initParticles() {
             const cx = 450; const cy = 430; const innerR = 140; const outerR = 400;
-            // Rows for 500 dots (Exact)
             const rowCounts = [29, 32, 35, 37, 39, 41, 43, 45, 47, 49, 51, 52];
             particles = [];
             for (let i = 0; i < rowCounts.length; i++) {
@@ -664,13 +647,13 @@
             const sorted = [...state.parties].sort((a,b) => (b.const+b.list) - (a.const+a.list));
             const totalVal = sorted.reduce((a,b)=>a+b.const+b.list, 0);
             
-            const prog = Math.min(100, Math.round((totalVal/TOTAL_SEATS)*100));
-            document.getElementById('oa-progress-val').innerText = `${prog}%`;
+            // Progress Bar Update
+            document.getElementById('oa-progress-val').innerText = `${state.progress}%`;
+            document.getElementById('oa-progress-fill').style.width = `${state.progress}%`;
 
-            // Scene 1: Dashboard (Motion)
+            // Scene 1: Dashboard
             if(state.scene === 'dashboard') {
                 const dashBars = document.getElementById('dash-bars'); 
-                // Ensure elements
                 sorted.slice(0, 10).forEach((p, i) => {
                     let bar = document.getElementById(`bar-${p.id}`);
                     if (!bar) {
@@ -691,41 +674,39 @@
                 animateNumber(document.getElementById('oa-total-display'), parseInt(document.getElementById('oa-total-display').innerText), totalVal);
             }
 
-            // Scene 2: Top 3 (Motion)
+            // Scene 2: Top 3 (Calculated Absolute Center)
             if(state.scene === 'top3') {
                 const list = document.getElementById('top3-list');
-                const positions = [
-                    { data: sorted[1], left: '20%', height: '75%', color: '#9ca3af' }, // Rank 2
-                    { data: sorted[0], left: '50%', height: '95%', color: '#fbbf24' }, // Rank 1
-                    { data: sorted[2], left: '80%', height: '60%', color: '#b45309' }  // Rank 3
-                ];
+                const containerWidth = list.offsetWidth;
+                const centerPos = containerWidth / 2;
                 
-                // Clear on scene change only to reset entrance animation
-                if(sceneChanged) list.innerHTML = '';
+                const r1x = centerPos - 150; // 300px width / 2
+                const r2x = r1x - 300 - 40;
+                const r3x = r1x + 300 + 40;
 
-                positions.forEach(pos => {
-                    if(!pos.data) return;
-                    const p = pos.data;
-                    let card = document.getElementById(`top3-${p.id}`);
-                    
+                const top3Data = [
+                    { data: sorted[1], rank: 2, x: r2x, h:'75%', c:'#9ca3af' },
+                    { data: sorted[0], rank: 1, x: r1x, h:'95%', c:'#fbbf24' },
+                    { data: sorted[2], rank: 3, x: r3x, h:'60%', c:'#b45309' }
+                ];
+
+                top3Data.forEach(item => {
+                    if(!item.data) return;
+                    const p = item.data;
+                    let card = document.getElementById(`top3-slot-rank${item.rank}`);
                     if(!card) {
                         card = document.createElement('div');
-                        card.id = `top3-${p.id}`;
-                        card.className = 'top3-card entrance';
-                        if(sceneChanged) card.classList.add('entrance');
+                        card.id = `top3-slot-rank${item.rank}`;
+                        card.className = `top3-card rank-${item.rank} entrance`;
                         list.appendChild(card);
                     }
+                    card.style.left = `${item.x}px`;
+                    card.style.height = item.h;
+                    card.style.borderTopColor = p.color;
                     
-                    // Update Position & Style (Motion)
-                    card.style.left = pos.left;
-                    card.style.height = pos.height;
-                    card.style.borderTopColor = p.color; // Use party color
-                    card.style.transform = `translateX(-50%)`; // Center anchor
-                    
-                    // Update Content
                     card.innerHTML = `
                         <div style="padding:20px; text-align:center; width:100%;">
-                            <div style="font-size:1.4rem; font-weight:700; color:${pos.color}; text-shadow:0 2px 10px rgba(0,0,0,0.5); text-transform:uppercase;">Rank</div>
+                            <div style="font-size:1.4rem; font-weight:700; color:${item.c}; text-shadow:0 2px 10px rgba(0,0,0,0.5);">อันดับ ${item.rank}</div>
                             <div style="font-size:2.8rem; line-height:1.2; font-weight:600; color:${p.color}; margin-top:10px; text-shadow:0 2px 10px rgba(0,0,0,0.5);">${p.name}</div>
                             <div class="top3-score"><span id="top3-val-${p.id}">${p.const + p.list}</span><div class="update-glow"></div></div>
                         </div>
@@ -733,43 +714,41 @@
                 });
             }
 
-            // Scene 3: All Stats (Absolute Grid for Motion)
+            // Scene 3: All Stats (Perfect Absolute Grid Center)
             if(state.scene === 'all_stats') {
                 const container = document.getElementById('all-stats-list');
-                const cardWidth = 320; 
-                const cardHeight = 180;
-                const gap = 20;
-                const containerWidth = container.offsetWidth;
+                const cardW = 320; const cardH = 180; const gap = 20;
+                const containerW = container.offsetWidth;
                 
-                // Calculate Grid Layout to Center
-                const cols = Math.floor(containerWidth / (cardWidth + gap));
-                const totalGridW = cols * (cardWidth + gap) - gap;
-                const startX = (containerWidth - totalGridW) / 2;
-                
-                sorted.forEach((p, i) => {
-                    let card = document.getElementById(`stat-card-${p.id}`);
-                    if(!card) {
-                        card = document.createElement('div');
-                        card.id = `stat-card-${p.id}`;
-                        card.className = 'stat-card';
-                        card.innerHTML = `
-                            <div class="stat-card-header"><div class="stat-card-name" style="color:${p.color}">${p.name}</div><div id="stat-total-${p.id}" class="stat-card-total">${p.const + p.list}<div class="update-glow"></div></div></div>
-                            <div class="stat-breakdown"><div class="stat-badge-mini"><div class="stat-label">แบบแบ่งเขต</div><div class="stat-val">${p.const}</div></div><div class="stat-badge-mini"><div class="stat-label">บัญชีรายชื่อ</div><div class="stat-val">${p.list}</div></div></div>
-                            <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:${p.color};"></div>
-                        `;
-                        container.appendChild(card);
-                    } else {
-                        // Update values
-                        const totalEl = document.getElementById(`stat-total-${p.id}`);
-                        if(totalEl.childNodes[0].nodeType === 3) totalEl.childNodes[0].nodeValue = (p.const + p.list) + "\n";
-                    }
-
-                    // Calculate Position (Absolute)
-                    const col = i % cols;
-                    const row = Math.floor(i / cols);
-                    card.style.left = `${startX + col * (cardWidth + gap)}px`;
-                    card.style.top = `${row * (cardHeight + gap)}px`;
-                });
+                if(containerW > 0) {
+                    const cols = Math.max(1, Math.floor(containerW / (cardW + gap)));
+                    // Calculate Block Dimensions to center it
+                    const blockW = cols * cardW + (cols - 1) * gap;
+                    const startX = (containerW - blockW) / 2;
+                    
+                    sorted.forEach((p, i) => {
+                        let card = document.getElementById(`stat-card-${p.id}`);
+                        if(!card) {
+                            card = document.createElement('div');
+                            card.id = `stat-card-${p.id}`;
+                            card.className = 'stat-card';
+                            card.innerHTML = `
+                                <div class="stat-card-header"><div class="stat-card-name" style="color:${p.color}">${p.name}</div><div id="stat-total-${p.id}" class="stat-card-total">${p.const + p.list}<div class="update-glow"></div></div></div>
+                                <div class="stat-breakdown"><div class="stat-badge-mini"><div class="stat-label">แบบแบ่งเขต</div><div class="stat-val">${p.const}</div></div><div class="stat-badge-mini"><div class="stat-label">บัญชีรายชื่อ</div><div class="stat-val">${p.list}</div></div></div>
+                                <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:${p.color};"></div>
+                            `;
+                            container.appendChild(card);
+                        } else {
+                            const totalEl = document.getElementById(`stat-total-${p.id}`);
+                            if(totalEl.childNodes[0].nodeType === 3) totalEl.childNodes[0].nodeValue = (p.const + p.list) + "\n";
+                        }
+                        
+                        const col = i % cols;
+                        const row = Math.floor(i / cols);
+                        card.style.left = `${startX + col * (cardW + gap)}px`;
+                        card.style.top = `${row * (cardH + gap)}px`;
+                    });
+                }
             }
 
             // Scene 4: Parliament Tube
@@ -799,7 +778,7 @@
                 });
             }
 
-            // Particles Color Update
+            // Particles
             let pIdx = 0;
             sorted.forEach(p => {
                 for(let k=0; k<p.const+p.list; k++) { if(pIdx < TOTAL_SEATS) particles[pIdx++].tc = p.color; }
