@@ -3,547 +3,764 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PO1 NEWSCAST SYSTEM</title>
+    <title>ElectionOS V4 - Pro Realtime</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600;700&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=Sarabun:wght@300;400;600&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
 
     <style>
-        :root { --bg-dark: #050505; --glass: rgba(10, 15, 30, 0.95); --neon: #3b82f6; --gold: #f59e0b; }
-        body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-dark); color: white; overflow: hidden; }
-        .font-tech { font-family: 'Chakra Petch', sans-serif; }
-        
-        /* UI Components */
-        .glass-panel { 
-            background: var(--glass); 
-            border: 1px solid rgba(255,255,255,0.15); 
-            box-shadow: 0 10px 50px rgba(0,0,0,0.8); 
-            backdrop-filter: blur(10px);
-        }
-        
-        /* NEWS BAR STYLE */
-        .news-bar-container {
-            background: linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(5,5,10,1) 100%);
-            border-top: 4px solid var(--gold);
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.8);
+        /* --- THEME VARIABLES --- */
+        :root {
+            --bg-deep: #050505;
+            --bg-card: #121214;
+            --bg-input: #202023;
+            --border: rgba(255, 255, 255, 0.12);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --danger: #ef4444;
+            --success: #10b981;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+
+            --font-ui: 'Prompt', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
-        /* Animations */
-        .slide-up-enter { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(100%); }
-        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; outline: none; }
+        
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px;
+        }
 
-        .zoom-center { animation: zoomIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; opacity: 0; transform: scale(0.9); }
-        @keyframes zoomIn { to { opacity: 1; transform: scale(1); } }
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-2 { gap: 0.5rem; }
+        .w-full { width: 100%; }
 
-        .bar-fill { transition: width 1s cubic-bezier(0.25, 1, 0.5, 1); }
-        .dot-seat { transition: background-color 0.4s; }
+        /* --- DIRECTOR LAYOUT --- */
+        #director-app {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 64px 1fr;
+            height: 100vh;
+            background: var(--bg-deep);
+        }
+
+        .dir-header {
+            grid-column: 1 / -1;
+            background: var(--bg-deep);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 20;
+        }
+
+        .logo-text { font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; }
+        .logo-accent { color: var(--accent); }
+
+        .dir-sidebar {
+            background: #09090b;
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        .dir-main {
+            background: #0f0f11;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        /* --- CONTROLS --- */
+        .scene-btn {
+            width: 100%; padding: 14px 16px; text-align: left; 
+            background: var(--bg-input); color: var(--text-muted); 
+            border: 1px solid transparent; margin-bottom: 8px; border-radius: 10px; 
+            font-weight: 500; cursor: pointer; transition: all 0.2s ease;
+            font-family: var(--font-ui);
+        }
+        .scene-btn:hover { background: #2a2a2e; color: white; transform: translateX(2px); }
+        .scene-btn.active { 
+            background: var(--accent); color: white; 
+            box-shadow: 0 4px 15px var(--accent-glow); 
+            border-color: rgba(255,255,255,0.2);
+            font-weight: 600;
+        }
+
+        .btn-update-ticker {
+            width: 100%; background: var(--success); color: white; 
+            border: none; padding: 12px; border-radius: 10px; 
+            font-weight: 600; cursor: pointer; margin-top: 12px;
+            font-family: var(--font-ui); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            transition: all 0.2s;
+        }
+        .btn-update-ticker:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-update-ticker:active { transform: translateY(1px); }
+
+        /* --- PARTY ROW --- */
+        .party-list-container { display: flex; flex-direction: column; gap: 10px; }
+        .party-card {
+            display: grid;
+            grid-template-columns: 24px 1fr auto auto 40px 40px;
+            gap: 16px; align-items: center;
+            background: var(--bg-card); 
+            padding: 10px 20px; 
+            border-radius: 12px; 
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .party-card:hover { border-color: rgba(255,255,255,0.3); }
+
+        .party-name {
+            font-size: 1rem; font-weight: 600; color: white;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .control-pill {
+            display: flex; align-items: center;
+            background: var(--bg-input);
+            border-radius: 8px;
+            padding: 3px;
+            border: 1px solid var(--border);
+        }
+        .control-label {
+            font-size: 0.7rem; color: var(--text-muted); font-weight: 600;
+            padding: 0 10px 0 6px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            margin-right: 4px;
+        }
+        
+        .btn-circle {
+            width: 28px; height: 28px;
+            background: #3f3f46; color: white;
+            border: none; border-radius: 6px;
+            font-size: 1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .btn-circle:hover { background: var(--accent); }
+        
+        .input-num {
+            width: 40px; background: transparent; border: none;
+            color: white; text-align: center; font-family: var(--font-mono);
+            font-weight: 700; font-size: 1rem;
+        }
+
+        .checkbox-custom { width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
+        .btn-del { background: transparent; border: none; color: #52525b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
+        .btn-del:hover { color: var(--danger); }
+
+        .stats-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+        .stat-badge {
+            background: rgba(59, 130, 246, 0.1); color: var(--accent);
+            padding: 4px 10px; border-radius: 6px; font-weight: 600; font-family: var(--font-mono);
+            border: 1px solid rgba(59, 130, 246, 0.2); font-size: 0.85rem;
+        }
+        .stat-badge.full { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
+
+        /* --- ON-AIR MOTION & STYLE --- */
+        #on-air-app {
+            position: relative; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at 60% 60%, #1e1e24 0%, #050505 90%);
+            overflow: hidden;
+            font-family: var(--font-ui);
+        }
+        .bg-grid {
+            position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 80px 80px;
+            transform: perspective(1000px) rotateX(25deg);
+            z-index: 0; pointer-events: none;
+        }
+        .oa-header {
+            position: absolute; top: 0; left: 0; width: 100%; height: 90px;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 60px; z-index: 100;
+        }
+        
+        /* Scene Container & Transitions */
+        .scene {
+            position: absolute; top: 90px; bottom: 70px; left: 0; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; 
+            transform: scale(1.05); /* Slight zoom out effect on exit */
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+            pointer-events: none;
+        }
+        .scene.active { 
+            opacity: 1; 
+            transform: scale(1); 
+            pointer-events: auto;
+            transition-delay: 0.1s;
+        }
+
+        /* --- DASHBOARD REDESIGN --- */
+        .dash-layout { 
+            display: grid; grid-template-columns: 1.2fr 550px; 
+            gap: 60px; width: 92%; max-width: 1800px; height: 80%; align-items: center; 
+        }
+        
+        #dash-bars {
+            display: flex; flex-direction: column; width: 100%; gap: 12px;
+            perspective: 1000px;
+        }
+
+        .party-bar {
+            position: relative;
+            height: 60px; 
+            display: flex; align-items: center; padding: 0 24px; justify-content: space-between; 
+            border-radius: 6px; 
+            opacity: 0; 
+            transform: translateX(-50px) rotateY(-10deg);
+            transform-origin: left center;
+            transition: all 0.3s;
+        }
+        
+        /* FLASH EFFECTS */
+        @keyframes barFlash {
+            0% { filter: brightness(1); transform: scale(1); }
+            50% { filter: brightness(2.5) contrast(1.2); transform: scale(1.02); box-shadow: 0 0 25px rgba(255,255,255,0.3); }
+            100% { filter: brightness(1); transform: scale(1); }
+        }
+        .party-bar.flash { animation: barFlash 0.5s ease-out; z-index: 10; }
+
+        @keyframes numberFlash {
+            0% { background-color: transparent; color: white; transform: scale(1); }
+            10% { background-color: var(--flash-color); color: white; transform: scale(1.15); box-shadow: 0 0 30px var(--flash-color); text-shadow:none; }
+            100% { background-color: transparent; color: white; transform: scale(1); }
+        }
+        .stat-card-total { transition: all 0.2s; border-radius: 8px; padding: 0 8px; }
+        .stat-card-total.flash { animation: numberFlash 0.8s ease-out; }
+
+        .scene.active .party-bar {
+            animation: barEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes barEntrance {
+            to { opacity: 1; transform: translateX(0) rotateY(0); }
+        }
+
+        .party-bar-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 6px; z-index: -1;
+            mask-image: linear-gradient(to right, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 60%, transparent 100%);
+        }
+        
+        .bar-name { font-size: 1.6rem; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .bar-val { font-size: 2.2rem; font-weight: 800; font-family: var(--font-mono); color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+
+        .hemi-wrapper {
+            position: relative; display: flex; flex-direction: column; align-items: center;
+            opacity: 0; transform: scale(0.8);
+        }
+        .scene.active .hemi-wrapper {
+            animation: popIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation-delay: 0.3s;
+        }
+        @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+
+        .big-number { font-family: var(--font-mono); font-size: 7.5rem; font-weight: 800; line-height: 0.9; color: white; text-shadow: 0 0 50px rgba(255,255,255,0.15); }
+        
+        /* --- TOP 3 PODIUM --- */
+        .top3-container { 
+            display: flex; align-items: flex-end; justify-content: center; 
+            gap: 30px; height: 75%; width: 90%; 
+        }
+        .top3-card {
+            flex: 1; 
+            background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0.8) 100%);
+            border: 1px solid rgba(255,255,255,0.15); border-bottom: none; 
+            border-radius: 20px 20px 0 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            position: relative;
+            backdrop-filter: blur(20px);
+            opacity: 0; transform: translateY(100px);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
+            padding-top: 40px;
+        }
+        /* Podium Heights */
+        .top3-card.rank-1 { height: 95%; border-top: 6px solid #fbbf24; z-index: 3; }
+        .top3-card.rank-2 { height: 75%; border-top: 6px solid #9ca3af; z-index: 2; }
+        .top3-card.rank-3 { height: 60%; border-top: 6px solid #b45309; z-index: 1; }
+
+        .scene.active .top3-card { animation: cardSlideUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        .scene.active .top3-card.rank-1 { animation-delay: 0.2s; } 
+        .scene.active .top3-card.rank-2 { animation-delay: 0.1s; } 
+        .scene.active .top3-card.rank-3 { animation-delay: 0.3s; }
+
+        @keyframes cardSlideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* --- ALL STATS SCENE --- */
+        .all-stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px; width: 95%; max-width: 1700px; height: 80%; overflow-y: auto;
+            padding: 20px;
+        }
+        .stat-card {
+            background: #18181b; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 24px; display: flex; flex-direction: column;
+            position: relative; overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .stat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .stat-card-name { font-size: 1.4rem; font-weight: 700; color: white; }
+        .stat-card-total { font-size: 3rem; font-weight: 800; font-family: var(--font-mono); color: white; line-height: 1; }
+        
+        .stat-breakdown { display: flex; gap: 12px; margin-top: auto; }
+        .stat-badge-mini {
+            flex: 1; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        .stat-val { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); color: white; margin-top: 4px; }
+
+        /* --- COALITION --- */
+        .coalition-wrapper { text-align: center; opacity: 0; transform: scale(1.2); filter: blur(10px); }
+        .scene.active .coalition-wrapper { animation: focusIn 0.8s ease-out forwards; }
+        @keyframes focusIn { to { opacity: 1; transform: scale(1); filter: blur(0); } }
 
         /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; white-space: nowrap; }
-        .ticker-track { display: inline-block; white-space: nowrap; padding-left: 100vw; animation: ticker 40s linear infinite; }
-        @keyframes ticker { 100% { transform: translate3d(-100%, 0, 0); } }
+        .ticker-bar {
+            position: absolute; bottom: 0; width: 100%; height: 60px; background: #000; 
+            border-top: 2px solid var(--accent);
+            display: flex; align-items: center; z-index: 100;
+        }
+        .ticker-anim { white-space: nowrap; animation: tick 35s linear infinite; color: white; font-size: 1.4rem; padding-left: 100%; font-weight: 400; }
+        @keyframes tick { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
-        /* Transparent Mode */
-        body.transparent .bg-main { background: transparent !important; }
-        body.transparent .obs-hide { display: none !important; }
-        body.transparent .scene-bg { display: none !important; }
     </style>
 </head>
 <body>
 
-<div id="app" class="w-full h-full"></div>
+    <!-- DIRECTOR INTERFACE -->
+    <div id="director-app">
+        <header class="dir-header">
+            <div class="logo-text">ELECTION<span class="logo-accent">OS</span> V4</div>
+            <div class="flex items-center gap-2">
+                <div id="d-clock" class="font-mono" style="color:#71717a; font-size:0.9rem;">00:00:00</div>
+                <button onclick="openOnAir()" style="background:var(--text-main); color:black; border:none; padding:8px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-family:var(--font-ui);">เปิดจอ ON-AIR</button>
+            </div>
+        </header>
 
-<script>
-    // ==========================================
-    // 1. CONFIGURATION
-    // ==========================================
-    const STORAGE_KEY = 'PO1_NEWSCAST_DB';
-    const LIMITS = { zone: 400, list: 100 };
+        <aside class="dir-sidebar">
+            <div>
+                <label style="color:#71717a; font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block; margin-bottom:12px;">SCENE CONTROL</label>
+                <button class="scene-btn active" onclick="setScene('dashboard')" data-s="dashboard">DASHBOARD (MAIN)</button>
+                <button class="scene-btn" onclick="setScene('top3')" data-s="top3">TOP 3 FOCUS</button>
+                <button class="scene-btn" onclick="setScene('all_stats')" data-s="all_stats">ALL PARTIES BREAKDOWN</button>
+                <button class="scene-btn" onclick="setScene('coalition')" data-s="coalition">COALITION BUILDER</button>
+            </div>
+            
+            <div style="margin-top:auto;">
+                <label style="color:#71717a; font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block; margin-bottom:12px;">TICKER (ตัววิ่ง)</label>
+                <textarea id="ticker-temp-input" placeholder="พิมพ์ข้อความที่นี่..." style="width:100%; background:var(--bg-input); border:1px solid var(--border); color:white; padding:12px; border-radius:12px; height:80px; font-family:'Prompt'; outline:none; resize:none; font-size:0.9rem;"></textarea>
+                <button onclick="submitTicker()" class="btn-update-ticker">ส่งข้อความขึ้นจอ</button>
+            </div>
+        </aside>
 
-    const DEFAULT_DATA = {
-        parties: [
-            { id: 'p1', name: 'พรรคประชาชน', color: '#FF9100', zone: 120, list: 30 },
-            { id: 'p2', name: 'เพื่อไทย', color: '#E60000', zone: 100, list: 25 },
-            { id: 'p3', name: 'ภูมิใจไทย', color: '#0033CC', zone: 50, list: 10 },
-            { id: 'p4', name: 'รทสช.', color: '#2C3E50', zone: 20, list: 5 },
-            { id: 'p5', name: 'ประชาธิปัตย์', color: '#00AEF0', zone: 10, list: 2 }
-        ],
-        scene: 'newsbar', // Default to News Bar
-        ticker: 'เกาะติดผลการเลือกตั้ง 2569 : รายงานสดคะแนนอย่างไม่เป็นทางการ...',
-        bg: 'dark'
-    };
+        <main class="dir-main">
+            <div class="stats-header">
+                <div>
+                    <h2 style="font-weight:700; font-size:1.5rem;">จัดการคะแนนพรรค</h2>
+                    <div style="color:var(--text-muted); font-size:0.9rem; margin-top:4px;">Real-time Data Entry</div>
+                </div>
+                <div class="flex gap-2">
+                    <div id="stat-const" class="stat-badge">เขต: 0/400</div>
+                    <div id="stat-list" class="stat-badge">บัญชี: 0/100</div>
+                </div>
+            </div>
+            
+            <div id="party-list" class="party-list-container"></div>
+            
+            <button onclick="addParty()" style="width:100%; padding:14px; border:2px dashed var(--border); background:rgba(255,255,255,0.02); color:var(--text-muted); border-radius:12px; cursor:pointer; margin-top:16px; font-weight:600; font-family:var(--font-ui); transition:all 0.2s;">
+                + เพิ่มพรรคการเมืองใหม่
+            </button>
+        </main>
+    </div>
 
-    function loadState() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_DATA));
-    }
-    function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+    <!-- ON-AIR INTERFACE -->
+    <div id="on-air-app" class="hidden">
+        <div class="bg-grid"></div>
+        <header class="oa-header">
+            <div style="background:var(--danger); color:white; padding:6px 16px; font-weight:800; font-size:0.9rem; border-radius:4px; letter-spacing:1px; box-shadow:0 0 20px rgba(239,68,68,0.5);">LIVE RESULTS</div>
+            <div id="oa-clock" class="font-mono" style="font-size:2.2rem; font-weight:800;">18:00:00</div>
+        </header>
 
-    let state = loadState();
-    let chartInstance = null;
-
-    // ==========================================
-    // 2. ROUTER
-    // ==========================================
-    const app = document.getElementById('app');
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
-
-    if (!mode) renderMenu();
-    else if (mode === 'control') initControl();
-    else if (mode === 'onair') initOnAir();
-
-    // ==========================================
-    // 3. MENU
-    // ==========================================
-    function renderMenu() {
-        app.innerHTML = `
-            <div class="h-screen w-screen flex items-center justify-center bg-black bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 to-black">
-                <div class="glass-panel p-16 rounded-3xl text-center max-w-3xl w-full border-t-4 border-yellow-500 shadow-2xl">
-                    <h1 class="text-7xl font-tech font-bold text-white mb-2">PO1 <span class="text-yellow-500">NEWSCAST</span></h1>
-                    <p class="text-slate-400 mb-12 text-sm uppercase tracking-[0.5em]">Broadcast Ready System</p>
-                    <div class="grid grid-cols-2 gap-8">
-                        <button onclick="location.href='?mode=control'" class="group h-40 bg-slate-900 border border-slate-700 rounded-2xl hover:bg-yellow-600 hover:text-black transition-all flex flex-col items-center justify-center">
-                            <span class="text-5xl mb-4 group-hover:scale-110 transition">🎛️</span>
-                            <span class="font-bold text-lg tracking-widest">CONTROL ROOM</span>
-                        </button>
-                        <button onclick="location.href='?mode=onair'" class="group h-40 bg-slate-900 border border-slate-700 rounded-2xl hover:bg-blue-600 hover:text-white transition-all flex flex-col items-center justify-center">
-                            <span class="text-5xl mb-4 group-hover:scale-110 transition">📺</span>
-                            <span class="font-bold text-lg tracking-widest">ON-AIR SCREEN</span>
-                        </button>
+        <!-- Scene 1: Dashboard -->
+        <div id="scene-dashboard" class="scene active">
+            <div class="dash-layout">
+                <div id="dash-bars"></div>
+                
+                <div class="hemi-wrapper">
+                    <canvas id="dash-hemi" width="600" height="320"></canvas>
+                    <div style="text-align:center; margin-top:20px;">
+                        <div id="oa-total-display" class="big-number">0</div>
+                        <div style="font-size:1.2rem; letter-spacing:6px; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-top:5px;">Total Seats</div>
                     </div>
                 </div>
-            </div>`;
-    }
+            </div>
+        </div>
 
-    // ==========================================
-    // 4. CONTROL ROOM
-    // ==========================================
-    function initControl() {
-        document.title = "Control - PO1";
+        <!-- Scene 2: Top 3 -->
+        <div id="scene-top3" class="scene">
+            <div id="top3-list" class="top3-container"></div>
+        </div>
+
+        <!-- Scene 3: All Stats (New) -->
+        <div id="scene-all_stats" class="scene">
+            <div class="flex-col items-center w-full" style="height:100%;">
+                 <h2 style="font-family:var(--font-ui); font-size:2.5rem; margin-bottom:20px; font-weight:700; color:white; text-shadow:0 4px 10px rgba(0,0,0,0.5);">สรุปผลคะแนนอย่างไม่เป็นทางการ</h2>
+                 <div id="all-stats-list" class="all-stats-grid"></div>
+            </div>
+        </div>
+
+        <!-- Scene 4: Coalition -->
+        <div id="scene-coalition" class="scene">
+            <div class="coalition-wrapper">
+                <h2 style="font-family:var(--font-ui); font-size:3.5rem; margin-bottom:20px; font-weight:400; letter-spacing:2px;">GOVERNMENT FORMATION</h2>
+                <div style="font-size:9rem; font-weight:800; font-family:var(--font-mono); color:white; line-height:1;">
+                    <span id="coa-val">0</span> <span style="font-size:3.5rem; color:#64748b;">/ 500</span>
+                </div>
+                <div id="coa-status" style="font-size:2rem; font-weight:700; color:var(--danger); margin-top:30px; letter-spacing:1px;">THRESHOLD: 251</div>
+            </div>
+        </div>
+
+        <div class="ticker-bar">
+            <div style="background:var(--accent); color:white; height:100%; padding:0 35px; display:flex; align-items:center; font-weight:800; font-size:1.1rem; letter-spacing:1px;">UPDATE</div>
+            <div style="flex:1; overflow:hidden;"><div id="oa-ticker" class="ticker-anim">...</div></div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'election_v4_realtime';
+        const CHANNEL_NAME = 'election_os_channel';
+        const isDirector = !location.search.includes('mode=onair');
         
-        function renderUI() {
-            const totalZone = state.parties.reduce((s, p) => s + p.zone, 0);
-            const totalList = state.parties.reduce((s, p) => s + p.list, 0);
+        // --- REALTIME SYNC ---
+        const broadcast = new BroadcastChannel(CHANNEL_NAME);
 
-            app.innerHTML = `
-                <div class="flex h-screen bg-black text-white font-sans text-sm">
-                    <div class="w-80 glass-panel border-r border-slate-800 flex flex-col z-20">
-                        <div class="p-6 border-b border-slate-800">
-                            <h2 class="font-bold text-xl text-white tracking-wide flex items-center gap-3">
-                                <span class="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_red]"></span> 
-                                LIVE CONTROL
-                            </h2>
-                        </div>
-                        
-                        <div class="p-4 space-y-2 overflow-y-auto flex-1">
-                            <div class="text-[10px] text-slate-500 font-bold uppercase px-2 mb-1">SCENE SELECTION</div>
-                            ${[
-                                {id:'newsbar', label:'📺 News Bar (Lower)', desc:'แถบล่างสำหรับซ้อนภาพข่าว *แนะนำ*'},
-                                {id:'dashboard', label:'📊 Dashboard Full', desc:'ตารางคะแนนเต็มจอ'},
-                                {id:'battle', label:'⚔️ Battle Gauge', desc:'วัดพลัง รัฐบาล vs ฝ่ายค้าน'},
-                                {id:'parliament', label:'🏛️ Parliament', desc:'ผังที่นั่งสภา'},
-                                {id:'chart', label:'🍩 Donut Chart', desc:'กราฟวงกลม'},
-                                {id:'winner', label:'🏆 Winner', desc:'ประกาศชัยชนะ'}
-                            ].map(s => `
-                                <button onclick="setScene('${s.id}')" class="w-full text-left p-4 rounded-xl mb-1 border transition-all ${state.scene===s.id ? 'bg-blue-900 border-blue-500 text-white shadow-lg' : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:bg-slate-800'}">
-                                    <div class="font-bold text-base flex justify-between items-center">
-                                        ${s.label}
-                                        ${state.scene===s.id ? '<span class="text-[10px] bg-white text-blue-900 px-2 rounded-full font-bold">ON AIR</span>' : ''}
-                                    </div>
-                                    <div class="text-[10px] opacity-70 mt-1">${s.desc}</div>
-                                </button>
-                            `).join('')}
-                        </div>
+        const MAX_CONST = 400; 
+        const MAX_LIST = 100;
+        const TOTAL_SEATS = MAX_CONST + MAX_LIST;
 
-                        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
-                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">Ticker</div>
-                            <div class="flex gap-2 mb-4">
-                                <input id="ticker-input" class="flex-1 bg-black border border-slate-700 rounded p-2 text-xs text-white" value="${state.ticker}">
-                                <button onclick="pushTicker()" class="bg-blue-600 px-4 rounded font-bold text-xs hover:bg-blue-500">UPDATE</button>
-                            </div>
-                            <div class="text-[10px] text-slate-500 font-bold uppercase mb-2">Background</div>
-                            <select onchange="setBg(this.value)" class="w-full bg-black border border-slate-700 rounded p-2 text-xs text-white">
-                                <option value="dark" ${state.bg==='dark'?'selected':''}>Dark Theme</option>
-                                <option value="transparent" ${state.bg==='transparent'?'selected':''}>Transparent (OBS)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
-                        <div class="max-w-4xl mx-auto pb-20">
-                            <div class="grid grid-cols-2 gap-4 mb-6">
-                                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
-                                    <span class="text-slate-400 text-xs uppercase font-bold">Zone Quota</span>
-                                    <div class="text-2xl font-tech font-bold ${totalZone >= LIMITS.zone ? 'text-red-500' : 'text-blue-400'}">
-                                        ${totalZone} <span class="text-sm text-slate-600">/ ${LIMITS.zone}</span>
-                                    </div>
-                                </div>
-                                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center">
-                                    <span class="text-slate-400 text-xs uppercase font-bold">List Quota</span>
-                                    <div class="text-2xl font-tech font-bold ${totalList >= LIMITS.list ? 'text-red-500' : 'text-green-400'}">
-                                        ${totalList} <span class="text-sm text-slate-600">/ ${LIMITS.list}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-3">
-                                ${state.parties.map((p, i) => `
-                                    <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 hover:border-slate-600 transition flex items-center gap-4 group">
-                                        <div class="flex items-center gap-3 w-1/3">
-                                            <input type="color" value="${p.color}" onchange="updateVal(${i}, 'color', this.value)" class="w-10 h-10 rounded-lg border-0 bg-transparent cursor-pointer">
-                                            <input type="text" value="${p.name}" oninput="updateVal(${i}, 'name', this.value)" class="bg-transparent font-bold text-xl w-full focus:outline-none border-b border-transparent focus:border-slate-500 px-2">
-                                        </div>
-                                        
-                                        <div class="flex-1 grid grid-cols-2 gap-4">
-                                            <div class="bg-black/30 p-2 rounded-lg flex items-center justify-between border border-slate-800">
-                                                <button onclick="adj(${i}, 'zone', -1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-red-500 font-bold">-</button>
-                                                <div class="text-center">
-                                                    <div class="text-[9px] text-slate-500 uppercase">ZONE</div>
-                                                    <div class="font-tech text-2xl font-bold text-white">${p.zone}</div>
-                                                </div>
-                                                <button onclick="adj(${i}, 'zone', 1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-green-500 font-bold" ${totalZone >= LIMITS.zone ? 'disabled style="opacity:0.3"' : ''}>+</button>
-                                            </div>
-                                            <div class="bg-black/30 p-2 rounded-lg flex items-center justify-between border border-slate-800">
-                                                <button onclick="adj(${i}, 'list', -1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-red-500 font-bold">-</button>
-                                                <div class="text-center">
-                                                    <div class="text-[9px] text-slate-500 uppercase">LIST</div>
-                                                    <div class="font-tech text-2xl font-bold text-white">${p.list}</div>
-                                                </div>
-                                                <button onclick="adj(${i}, 'list', 1)" class="w-8 h-8 rounded bg-slate-800 hover:bg-green-500 font-bold" ${totalList >= LIMITS.list ? 'disabled style="opacity:0.3"' : ''}>+</button>
-                                            </div>
-                                        </div>
-
-                                        <div class="w-16 text-center">
-                                            <div class="text-[9px] text-slate-500 uppercase">SUM</div>
-                                            <div class="text-2xl font-bold text-white">${p.zone+p.list}</div>
-                                        </div>
-                                        
-                                        <button onclick="removeParty(${i})" class="w-8 h-8 rounded text-slate-600 hover:text-red-500 transition">✕</button>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            
-                            <button onclick="addParty()" class="w-full mt-6 py-4 border-2 border-dashed border-slate-800 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 hover:bg-slate-900 transition font-bold">
-                                + เพิ่มพรรคใหม่
-                            </button>
-                        </div>
-                    </div>
-                </div>`;
-        }
-
-        // Logic
-        window.updateVal = (i, k, v) => { state.parties[i][k] = v; saveState(state); };
-        window.addParty = () => { state.parties.push({ id: 'p'+Date.now(), name: 'พรรคใหม่', color: '#888888', zone: 0, list: 0 }); saveState(state); renderUI(); };
-        window.removeParty = (i) => { if(confirm('ยืนยันลบ?')) { state.parties.splice(i, 1); saveState(state); renderUI(); } };
-        
-        window.adj = (i, type, delta) => {
-            const total = state.parties.reduce((sum, p) => sum + p[type], 0);
-            const limit = LIMITS[type];
-            if (delta > 0 && total >= limit) return; // Quota Lock
-            state.parties[i][type] = Math.max(0, state.parties[i][type] + delta);
-            saveState(state); renderUI(); 
+        let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+            scene: 'dashboard',
+            ticker: 'เกาะติดผลการเลือกตั้ง 2569 อย่างไม่เป็นทางการ - รายงานสดจากศูนย์ข้อมูล ElectionOS...',
+            parties: [
+                { id: 'p1', name: 'ก้าวไกล', color: '#f97316', const: 150, list: 40, coal: true },
+                { id: 'p2', name: 'เพื่อไทย', color: '#ef4444', const: 140, list: 30, coal: true },
+                { id: 'p3', name: 'ภูมิใจไทย', color: '#3b82f6', const: 70, list: 10, coal: false },
+                { id: 'p4', name: 'พลังประชารัฐ', color: '#1e3a8a', const: 30, list: 5, coal: false },
+                { id: 'p5', name: 'รวมไทยสร้างชาติ', color: '#dc2626', const: 10, list: 5, coal: false },
+                { id: 'p6', name: 'ประชาธิปัตย์', color: '#60a5fa', const: 5, list: 3, coal: false },
+                { id: 'p7', name: 'ชาติไทยพัฒนา', color: '#db2777', const: 2, list: 0, coal: false },
+            ]
         };
         
-        window.setScene = (s) => { state.scene = s; saveState(state); renderUI(); };
-        window.setBg = (b) => { state.bg = b; saveState(state); };
-        window.pushTicker = () => { state.ticker = document.getElementById('ticker-input').value; saveState(state); alert('ส่งข้อความขึ้นจอแล้ว!'); };
+        let previousScores = {}; 
+        let particles = [];
 
-        renderUI();
-    }
-
-    // ==========================================
-    // 5. ON-AIR DISPLAY
-    // ==========================================
-    function initOnAir() {
-        document.title = "ON AIR DISPLAY";
-        
-        app.innerHTML = `
-            <div id="main-view" class="w-full h-full flex flex-col bg-main bg-black transition-colors duration-500 relative overflow-hidden">
-                <div class="scene-bg absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 pointer-events-none"></div>
-                
-                <div id="stage" class="absolute inset-0 z-10 flex flex-col justify-end"></div>
-            </div>`;
-
-        // CLOCK
-        setInterval(() => {
-            const timeEl = document.getElementById('clock-text');
-            if(timeEl) timeEl.innerText = new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-        }, 1000);
-
-        let currentScene = '';
-        
-        // Loop
-        setInterval(() => {
-            const newState = loadState();
-            
-            // BG Logic
-            const view = document.getElementById('main-view');
-            if(newState.bg === 'transparent') document.body.classList.add('transparent');
-            else document.body.classList.remove('transparent');
-            
-            // Scene Render
-            const stage = document.getElementById('stage');
-            if (newState.scene !== currentScene) {
-                stage.innerHTML = ''; // Clear first
-                renderSceneStructure(stage, newState);
-                currentScene = newState.scene;
-                
-                // Entrance Animation based on scene type
-                if (newState.scene === 'newsbar') {
-                    gsap.from("#news-container", { y: 200, opacity: 0, duration: 0.8, ease: "power2.out" });
-                } else {
-                    gsap.from(".center-content", { scale: 0.9, opacity: 0, duration: 0.6, ease: "power2.out" });
-                }
+        function init() {
+            if (isDirector) {
+                document.getElementById('on-air-app').remove();
+                renderDirector();
+                setInterval(() => document.getElementById('d-clock').innerText = new Date().toLocaleTimeString('th-TH'), 1000);
             } else {
-                updateSceneValues(newState);
-            }
-            state = newState;
-        }, 200);
-    }
-
-    // ==========================================
-    // 6. SCENE RENDERERS (THE MAGIC)
-    // ==========================================
-    function renderSceneStructure(container, data) {
-        if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
-        
-        const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
-        const totalSeats = data.parties.reduce((s,p)=>s+p.zone+p.list,0);
-
-        // 🔴 1. NEWS BAR (LOWER THIRD) - The Hero Scene
-        if(data.scene === 'newsbar') {
-            container.innerHTML = `
-                <div class="flex-1 w-full pointer-events-none"></div>
+                document.getElementById('director-app').remove();
+                document.getElementById('on-air-app').classList.remove('hidden');
                 
-                <div id="news-container" class="w-full relative z-50">
-                    <div class="news-bar-container h-48 flex flex-col justify-end pb-0 relative overflow-hidden">
-                        
-                        <div class="flex-1 flex items-center px-8 gap-6 pt-2">
-                            
-                            <div class="flex flex-col justify-center border-r border-slate-700 pr-6 mr-2 h-24 shrink-0">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <div class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">LIVE</div>
-                                    <div class="text-blue-400 font-bold uppercase text-[10px] tracking-widest">RESULTS</div>
-                                </div>
-                                <div id="clock-text" class="text-white font-tech font-bold text-4xl leading-none tracking-tight">00:00</div>
-                                <div class="text-slate-500 text-[10px] uppercase mt-1">Official Count</div>
-                            </div>
+                state.parties.forEach(p => previousScores[p.id] = p.const + p.list);
 
-                            <div class="flex-1 flex gap-3 h-28 items-center overflow-hidden">
-                                ${sorted.slice(0, 5).map((p, i) => `
-                                    <div class="w-44 bg-slate-800/60 rounded-lg p-2 border-l-4 relative overflow-hidden flex flex-col justify-center h-full shadow-lg" style="border-color:${p.color}">
-                                        <div class="flex justify-between items-center mb-1">
-                                            <span class="text-[9px] text-slate-400 font-bold uppercase">No. ${i+1}</span>
-                                        </div>
-                                        <h3 class="text-base font-bold text-white truncate w-full mb-0 leading-tight">${p.name}</h3>
-                                        <div class="flex items-end gap-1 mt-1">
-                                            <span class="text-4xl font-tech font-bold text-white num-roll leading-none" id="low-val-${p.id}" style="text-shadow:0 0 15px ${p.color}">${p.zone+p.list}</span>
-                                            <span class="text-[9px] text-slate-500 mb-1">Seats</span>
-                                        </div>
-                                        <div class="absolute bottom-0 left-0 h-1 bg-white/10 w-full">
-                                            <div class="h-full bg-white/50" style="width:${((p.zone+p.list)/500)*100}%"></div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
+                initParticles(); 
+                loopRender();    
+                updateOnAir(); 
+                
+                broadcast.onmessage = (event) => {
+                    const newState = event.data;
+                    newState.parties.forEach(p => {
+                        const newScore = p.const + p.list;
+                        const oldScore = previousScores[p.id] || 0;
+                        if(newScore > oldScore) {
+                            triggerFlash(p.id, p.color);
+                        }
+                        previousScores[p.id] = newScore;
+                    });
+                    state = newState;
+                    updateOnAir();
+                };
 
-                            <div class="w-32 border-l border-slate-700 pl-6 ml-2 h-24 flex flex-col justify-center text-right shrink-0">
-                                 <div class="text-[9px] text-slate-400 uppercase font-bold mb-0">Total Counted</div>
-                                 <div class="text-5xl font-tech font-bold text-white tracking-tighter leading-none">${totalSeats}</div>
-                                 <div class="text-[9px] text-slate-500">of 500</div>
-                            </div>
-                        </div>
-
-                        <div class="h-10 bg-black border-t border-slate-800 flex items-center relative z-50 mt-2">
-                            <div class="bg-blue-700 h-full px-6 flex items-center justify-center shrink-0 z-20 shadow-xl">
-                                <span class="font-bold text-white tracking-widest text-xs">UPDATE</span>
-                            </div>
-                            <div class="ticker-wrap bg-slate-950/50 h-full flex items-center">
-                                <div id="ticker-text" class="ticker-track text-lg font-light text-slate-200">Loading...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        // 🔵 2. FULL SCREEN MODES (Centered)
-        
-        // Helper for Full Screen Layout
-        const wrapFullScreen = (content) => `
-            <div class="w-full h-full flex items-center justify-center p-12 center-content relative">
-                <div class="absolute top-0 left-0 w-full h-24 flex justify-between items-center px-12 pt-6 z-50 obs-hide">
-                    <div class="flex items-center gap-4">
-                        <div class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-lg">LIVE</div>
-                        <div class="text-white font-bold text-3xl">ELECTION 2026</div>
-                    </div>
-                </div>
-                ${content}
-                <div class="absolute bottom-0 w-full h-12 bg-black border-t border-slate-800 flex items-center">
-                     <div class="ticker-wrap w-full"><div id="ticker-text" class="ticker-track text-xl text-slate-300">...</div></div>
-                </div>
-            </div>`;
-
-        if(data.scene === 'dashboard') {
-            container.innerHTML = wrapFullScreen(`
-                <div class="w-full max-w-7xl">
-                    <div class="grid grid-cols-1 gap-3">
-                        ${sorted.map((p, i) => `
-                        <div class="glass-panel p-5 rounded-xl flex items-center relative overflow-hidden">
-                            <div class="absolute left-0 top-0 bottom-0 w-3" style="background:${p.color}"></div>
-                            <div class="w-16 font-tech text-4xl font-bold text-slate-600 text-center mr-4">0${i+1}</div>
-                            <div class="flex-1 z-10">
-                                <h2 class="text-3xl font-bold text-white mb-2">${p.name}</h2>
-                                <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-                                    <div class="h-full bar-fill" style="width:0%; background:${p.color}" id="bar-${p.id}"></div>
-                                </div>
-                            </div>
-                            <div class="w-48 text-right pr-4">
-                                <div class="text-6xl font-tech font-bold text-white tracking-tighter num-roll" id="val-total-${p.id}">${p.zone+p.list}</div>
-                            </div>
-                        </div>`).join('')}
-                    </div>
-                </div>
-            `);
-        }
-        
-        else if(data.scene === 'battle') {
-            container.innerHTML = wrapFullScreen(`
-                <div class="w-full max-w-6xl flex flex-col items-center">
-                    <h2 class="text-4xl font-bold mb-16 uppercase tracking-[0.5em] text-white/50">Coalition vs Opposition</h2>
-                    <div class="w-full h-40 bg-slate-900 rounded-full border-4 border-slate-800 relative flex overflow-hidden shadow-2xl">
-                        <div class="h-full bg-blue-600 flex items-center justify-start pl-8 relative transition-all duration-1000" style="width:50%" id="battle-left">
-                            <span class="text-4xl font-bold text-white drop-shadow-lg z-10" id="battle-txt-left">Gov: 0</span>
-                        </div>
-                        <div class="h-full bg-red-600 flex items-center justify-end pr-8 relative transition-all duration-1000" style="width:50%" id="battle-right">
-                             <span class="text-4xl font-bold text-white drop-shadow-lg z-10" id="battle-txt-right">Opp: 0</span>
-                        </div>
-                        <div class="absolute top-0 bottom-0 w-2 bg-white left-1/2 -translate-x-1/2 z-20 shadow-[0_0_30px_white]"></div>
-                        <div class="absolute -top-16 left-1/2 -translate-x-1/2 bg-white text-black px-6 py-1 rounded-full font-bold shadow-lg">TARGET 251</div>
-                    </div>
-                </div>
-            `);
-        }
-
-        else if(data.scene === 'parliament') {
-            let dotsHtml = '';
-            let idx = 0;
-            let seatColors = [];
-            sorted.forEach(p => { for(let i=0; i<p.zone+p.list; i++) seatColors.push(p.color); });
-            for(let r=1; r<=12; r++) {
-                const radius = 22 + (r * 3.8);
-                const arcLength = Math.PI * radius;
-                let dotsInRow = Math.floor(arcLength / 3.2);
-                if(r===12) dotsInRow = 500 - idx;
-                const step = 180 / (dotsInRow + 1);
-                for(let i=0; i<dotsInRow; i++) {
-                    if(idx>=500) break;
-                    const angle = (180 - (step * (i+1))) * (Math.PI / 180);
-                    const x = 50 + (radius * Math.cos(angle));
-                    const y = 90 - (radius * Math.sin(angle));
-                    const c = seatColors[idx] || '#1e293b';
-                    dotsHtml += `<div id="seat-${idx}" class="dot-seat absolute w-[1.2%] pb-[1.2%] rounded-full shadow-sm" style="left:${x}%; top:${y}%; background:${c}; transform:translate(-50%,-50%);"></div>`;
-                    idx++;
-                }
+                setInterval(() => document.getElementById('oa-clock').innerText = new Date().toLocaleTimeString('th-TH'), 1000);
             }
-            container.innerHTML = wrapFullScreen(`
-                <div class="relative w-[1300px] aspect-[1.9/1]">
-                    ${dotsHtml}
-                    <div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center mb-8 glass-panel px-10 py-6 rounded-2xl border-t-4 border-white">
-                        <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-2">Leader</div>
-                        <h1 class="text-5xl font-bold text-white mb-2">${sorted[0].name}</h1>
-                        <div class="text-7xl font-tech font-bold" style="color:${sorted[0].color}">${sorted[0].zone + sorted[0].list}</div>
-                    </div>
-                </div>
-            `);
         }
 
-        else if(data.scene === 'chart') {
-            container.innerHTML = wrapFullScreen(`
-                <div class="glass-panel p-10 rounded-3xl flex flex-col items-center justify-center relative">
-                    <h2 class="text-3xl font-bold mb-6 text-white uppercase tracking-widest">Parliament 500</h2>
-                    <div style="width: 600px; height: 600px;">
-                        <canvas id="seatsChart"></canvas>
-                    </div>
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none pt-12">
-                         <div class="text-center">
-                            <div class="text-7xl font-tech font-bold text-white">${totalSeats}</div>
-                            <div class="text-slate-500 text-sm">Filled</div>
-                         </div>
-                    </div>
-                </div>
-            `);
-            // Initialize chart logic here (same as previous)
-            setTimeout(() => {
-                const ctx = document.getElementById('seatsChart').getContext('2d');
-                const remaining = 500 - totalSeats;
-                chartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: [...sorted.map(p => p.name), 'Empty'],
-                        datasets: [{ data: [...sorted.map(p => p.zone+p.list), remaining], backgroundColor: [...sorted.map(p => p.color), '#1e293b'], borderWidth: 0 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, datalabels: { display: false } } }
-                });
-            }, 100);
+        function save() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            broadcast.postMessage(state);
+            if(isDirector) renderDirector(false);
         }
-
-        else if(data.scene === 'winner') {
-            const w = sorted[0];
-            container.innerHTML = wrapFullScreen(`
-                <div class="text-center relative z-10">
-                    <div class="glass-panel p-24 rounded-[3rem] border border-white/20 shadow-2xl relative z-10 bg-slate-900/80 backdrop-blur-3xl">
-                        <div class="text-8xl mb-6 animate-bounce drop-shadow-lg">🏆</div>
-                        <div class="text-2xl font-bold text-slate-400 tracking-[0.5em] mb-4 uppercase">Projected Winner</div>
-                        <h1 class="text-9xl font-bold text-white mb-8 drop-shadow-2xl">${w.name}</h1>
-                        <div class="text-[10rem] font-tech font-bold leading-none glow-text" style="color:${w.color}">${w.zone + w.list}</div>
-                    </div>
-                </div>
-            `);
-        }
-    }
-
-    // --- 7. UPDATES ---
-
-    function updateSceneValues(data) {
-        const sorted = [...data.parties].sort((a,b)=>(b.zone+b.list)-(a.zone+a.list));
         
-        if(data.scene === 'newsbar') {
-             data.parties.forEach(p => animateNum(`low-val-${p.id}`, p.zone + p.list));
+        function triggerFlash(partyId, color) {
+            setTimeout(() => {
+                // Flash Bar (Dashboard)
+                const bar = document.getElementById(`bar-${partyId}`);
+                if(bar) {
+                    bar.classList.remove('flash');
+                    void bar.offsetWidth;
+                    bar.classList.add('flash');
+                }
+                
+                // Flash Number (All Stats) - with Party Color
+                const num = document.getElementById(`stat-total-${partyId}`);
+                if(num) {
+                    num.style.setProperty('--flash-color', color);
+                    num.classList.remove('flash');
+                    void num.offsetWidth;
+                    num.classList.add('flash');
+                }
+            }, 50);
         }
-        else if(data.scene === 'dashboard') {
-            data.parties.forEach(p => {
-                const t = p.zone + p.list;
-                animateNum(`val-total-${p.id}`, t);
-                const bar = document.getElementById(`bar-${p.id}`);
-                if(bar) bar.style.width = `${(t/500)*100}%`;
+
+        // --- DIRECTOR LOGIC ---
+        function renderDirector(fullRender = true) {
+            document.querySelectorAll('.scene-btn').forEach(b => b.classList.toggle('active', b.dataset.s === state.scene));
+            if(fullRender) document.getElementById('ticker-temp-input').value = state.ticker;
+
+            const totalConst = state.parties.reduce((sum, p) => sum + p.const, 0);
+            const totalList = state.parties.reduce((sum, p) => sum + p.list, 0);
+
+            const statConst = document.getElementById('stat-const');
+            statConst.innerText = `เขต: ${totalConst}/${MAX_CONST}`;
+            statConst.classList.toggle('full', totalConst >= MAX_CONST);
+
+            const statList = document.getElementById('stat-list');
+            statList.innerText = `บัญชี: ${totalList}/${MAX_LIST}`;
+            statList.classList.toggle('full', totalList >= MAX_LIST);
+
+            const list = document.getElementById('party-list');
+            list.innerHTML = '';
+            
+            const sorted = [...state.parties].sort((a,b) => (b.const+b.list) - (a.const+a.list));
+
+            sorted.forEach(p => {
+                const row = document.createElement('div');
+                row.className = 'party-card';
+                row.innerHTML = `
+                    <input type="color" value="${p.color}" onchange="mod('${p.id}','color',this.value)" style="width:24px; height:24px; border:none; background:none; cursor:pointer; padding:0; border-radius:50%;">
+                    <div class="party-name" title="${p.name}">${p.name}</div>
+                    
+                    <div class="control-pill">
+                        <div class="control-label">เขต</div>
+                        <button class="btn-circle" onclick="adj('${p.id}', 'const', -1)">-</button>
+                        <input class="input-num" value="${p.const}" readonly>
+                        <button class="btn-circle" onclick="adj('${p.id}', 'const', 1)">+</button>
+                    </div>
+
+                    <div class="control-pill">
+                        <div class="control-label">บัญชี</div>
+                        <button class="btn-circle" onclick="adj('${p.id}', 'list', -1)">-</button>
+                        <input class="input-num" value="${p.list}" readonly>
+                        <button class="btn-circle" onclick="adj('${p.id}', 'list', 1)">+</button>
+                    </div>
+
+                    <div class="flex items-center justify-center">
+                        <input type="checkbox" class="checkbox-custom" ${p.coal?'checked':''} onchange="mod('${p.id}','coal',this.checked)" title="พรรคร่วมรัฐบาล">
+                    </div>
+                    <button class="btn-del" onclick="del('${p.id}')">&times;</button>
+                `;
+                list.appendChild(row);
             });
         }
-        else if(data.scene === 'battle') {
-            const p1 = sorted[0], p2 = sorted[1];
-            if(p1 && p2) {
-                const t1 = p1.zone + p1.list, t2 = p2.zone + p2.list;
-                const left = document.getElementById('battle-left');
-                const right = document.getElementById('battle-right');
-                if(left) { left.style.width = ((t1/500)*100)+'%'; left.style.backgroundColor = p1.color; document.getElementById('battle-txt-left').innerText = `${p1.name}: ${t1}`; }
-                if(right) { right.style.width = ((t2/500)*100)+'%'; right.style.backgroundColor = p2.color; document.getElementById('battle-txt-right').innerText = `${p2.name}: ${t2}`; }
+
+        function setScene(s) { state.scene = s; save(); }
+        function submitTicker() {
+            state.ticker = document.getElementById('ticker-temp-input').value;
+            save();
+            const btn = document.querySelector('.btn-update-ticker');
+            const originalText = btn.innerText;
+            btn.innerText = "ส่งข้อความแล้ว!";
+            btn.style.background = "#fff"; btn.style.color = "#000";
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "var(--success)"; btn.style.color = "white";
+            }, 1000);
+        }
+
+        function mod(id,k,v) { state.parties.find(x=>x.id===id)[k]=v; save(); }
+        function adj(id, k, d) { 
+            const p = state.parties.find(x=>x.id===id);
+            if (d > 0) {
+                const currentTotal = state.parties.reduce((sum, party) => sum + party[k], 0);
+                const limit = (k === 'const') ? MAX_CONST : MAX_LIST;
+                if (currentTotal >= limit) { alert(`ไม่สามารถเพิ่มได้! ครบจำนวน ${limit} ที่นั่งแล้ว`); return; }
+            }
+            p[k] = Math.max(0, p[k]+d);
+            save();
+        }
+        function addParty() { 
+            const name = prompt("กรุณากรอกชื่อพรรคการเมืองใหม่:");
+            if(name && name.trim() !== "") {
+                state.parties.push({id: Date.now().toString(), name: name.trim(), color: '#666666', const: 0, list: 0, coal: false}); 
+                save(); 
             }
         }
-        // Other scenes update logic...
-    }
-
-    function animateNum(id, newVal) {
-        const el = document.getElementById(id);
-        if(!el) return;
-        const oldVal = parseInt(el.innerText) || 0;
-        if(oldVal !== newVal) {
-            gsap.to(el, { innerHTML: newVal, duration: 1.5, snap: { innerHTML: 1 }, ease: "power2.out" });
+        function del(id) { 
+            if(confirm("ยืนยันที่จะลบพรรคนี้ออกจากระบบ?")) {
+                state.parties = state.parties.filter(x=>x.id!==id); save(); 
+            }
         }
-    }
-</script>
+        function openOnAir() { window.open(location.href + '?mode=onair', 'ElectionOS_Air', 'width=1920,height=1080'); }
+
+        // --- ON-AIR LOGIC ---
+        function initParticles() {
+            const rows = 12; const cx = 300; const cy = 280; const innerR = 100; const outerR = 260;
+            let posArray = [];
+            for (let r = 0; r < rows; r++) {
+                const radius = innerR + (r * (outerR - innerR) / (rows - 1));
+                const count = Math.floor((Math.PI * radius) / 14); 
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.PI - (i / (count - 1)) * Math.PI;
+                    posArray.push({ x: cx + radius * Math.cos(angle), y: cy - radius * Math.sin(angle), angle: angle });
+                }
+            }
+            posArray.sort((a, b) => b.angle - a.angle);
+            for (let i = 0; i < TOTAL_SEATS; i++) {
+                const p = posArray[i] || { x: cx, y: cy };
+                particles.push({ x: p.x, y: p.y, c: '#222', tc: '#222' });
+            }
+        }
+
+        function updateOnAir() {
+            document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+            const s = document.getElementById('scene-'+state.scene);
+            if(s) s.classList.add('active');
+
+            document.getElementById('oa-ticker').innerText = state.ticker;
+            const sorted = [...state.parties].sort((a,b) => (b.const+b.list) - (a.const+a.list));
+
+            // Scene 1: Dashboard
+            if(state.scene === 'dashboard') {
+                const dashBars = document.getElementById('dash-bars'); 
+                dashBars.innerHTML = '';
+                
+                // Show Top 6
+                sorted.slice(0, 6).forEach((p, i) => {
+                    const val = p.const + p.list;
+                    const bar = document.createElement('div'); 
+                    bar.id = `bar-${p.id}`; 
+                    bar.className = 'party-bar';
+                    bar.style.animationDelay = (i * 0.08) + 's'; 
+                    
+                    bar.innerHTML = `
+                        <div class="party-bar-bg" style="background: linear-gradient(90deg, ${p.color}44 0%, ${p.color}11 100%); border-left: 6px solid ${p.color};"></div>
+                        <div class="bar-name">${p.name}</div>
+                        <div class="bar-val">${val}</div>
+                    `;
+                    dashBars.appendChild(bar);
+                });
+                const totalVal = sorted.reduce((a,b)=>a+b.const+b.list, 0);
+                animateNumber(document.getElementById('oa-total-display'), parseInt(document.getElementById('oa-total-display').innerText), totalVal);
+            }
+
+            // Scene 2: Top 3 Podium
+            if(state.scene === 'top3') {
+                const list = document.getElementById('top3-list'); list.innerHTML = '';
+                // Order: Rank 2 (Left), Rank 1 (Center), Rank 3 (Right)
+                [{d:sorted[1],r:2,c:'rank-2'}, {d:sorted[0],r:1,c:'rank-1'}, {d:sorted[2],r:3,c:'rank-3'}].forEach(item => {
+                    if(!item.d) return;
+                    list.innerHTML += `
+                        <div class="top3-card ${item.c}" style="border-top-color:${item.d.color}; box-shadow: 0 -10px 40px ${item.d.color}22;">
+                            <div style="padding:20px; text-align:center; width:100%;">
+                                <div style="font-size:1.4rem; font-weight:700; color:${item.c==='rank-1'?'#fbbf24':(item.c==='rank-2'?'#9ca3af':'#b45309')}; text-shadow:0 2px 10px rgba(0,0,0,0.5);">อันดับ ${item.r}</div>
+                                <div style="font-size:2.8rem; line-height:1.2; font-weight:600; color:${item.d.color}; margin-top:10px; text-shadow:0 2px 10px rgba(0,0,0,0.5);">${item.d.name}</div>
+                                <div style="font-size:6.5rem; font-family:var(--font-mono); font-weight:800; color:white; text-shadow:0 4px 20px rgba(0,0,0,0.5);">${item.d.const + item.d.list}</div>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            // Scene 3: All Stats
+            if(state.scene === 'all_stats') {
+                const grid = document.getElementById('all-stats-list');
+                grid.innerHTML = '';
+                sorted.forEach(p => {
+                    grid.innerHTML += `
+                        <div class="stat-card">
+                            <div class="stat-card-header">
+                                <div class="stat-card-name" style="color:${p.color}">${p.name}</div>
+                                <div id="stat-total-${p.id}" class="stat-card-total">${p.const + p.list}</div>
+                            </div>
+                            <div class="stat-breakdown">
+                                <div class="stat-badge-mini">
+                                    <div class="stat-label">แบบแบ่งเขต</div>
+                                    <div class="stat-val">${p.const}</div>
+                                </div>
+                                <div class="stat-badge-mini">
+                                    <div class="stat-label">บัญชีรายชื่อ</div>
+                                    <div class="stat-val">${p.list}</div>
+                                </div>
+                            </div>
+                            <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:${p.color};"></div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Scene 4: Coalition
+            if(state.scene === 'coalition') {
+                const coalSum = state.parties.filter(p=>p.coal).reduce((a,b)=>a+b.const+b.list, 0);
+                const el = document.getElementById('coa-val');
+                animateNumber(el, parseInt(el.innerText), coalSum);
+                const st = document.getElementById('coa-status');
+                st.innerHTML = coalSum >= 251 ? `<span style="color:var(--success); text-shadow:0 0 20px rgba(16,185,129,0.5);">จัดตั้งรัฐบาลได้ (MAJORITY)</span>` : `ขาดอีก ${251-coalSum} ที่นั่ง`;
+            }
+
+            // Particles
+            let pIdx = 0;
+            sorted.forEach(p => {
+                for(let k=0; k<p.const+p.list; k++) { if(pIdx < TOTAL_SEATS) particles[pIdx++].tc = p.color; }
+            });
+            while(pIdx < TOTAL_SEATS) particles[pIdx++].tc = '#222';
+        }
+
+        function loopRender() {
+            if(state.scene === 'dashboard') {
+                const canvas = document.getElementById('dash-hemi');
+                if(canvas) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 600, 320);
+                    particles.forEach(p => { 
+                        ctx.fillStyle = p.tc; 
+                        ctx.beginPath(); 
+                        ctx.arc(p.x, p.y, 4, 0, Math.PI*2); 
+                        ctx.fill(); 
+                    });
+                }
+            }
+            requestAnimationFrame(loopRender);
+        }
+
+        function animateNumber(el, start, end) {
+            if(!el || start === end) return;
+            let current = start; const step = end > start ? 1 : -1;
+            const timer = setInterval(() => {
+                current += step; el.innerText = current;
+                if(current === end) clearInterval(timer);
+            }, Math.abs(end-start)>50?5:20);
+        }
+
+        init();
+    </script>
 </body>
 </html>
