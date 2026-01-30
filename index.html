@@ -193,8 +193,8 @@
             display: grid; grid-template-columns: 45% 55%; 
             width: 90%; max-width: 1800px; height: 100%; align-items: center; 
             margin: 0 auto; gap: 50px;
-            /* MOVED UP ~1.5cm (approx 60px more than previous -60px) */
-            transform: translateY(-120px); 
+            /* MOVED DOWN 20px (from -120px to -100px) */
+            transform: translateY(-100px); 
         }
         
         #dash-bars { position: relative; width: 100%; height: 600px; }
@@ -762,7 +762,7 @@
                             card.innerHTML = `
                                 <div class="stat-card-header"><div class="stat-card-name" style="color:${p.color}">${p.name}</div><div id="stat-total-${p.id}" class="stat-card-total">${p.const + p.list}<div class="update-glow"></div></div></div>
                                 <div class="stat-breakdown"><div class="stat-badge-mini"><div class="stat-label">แบบแบ่งเขต</div><div class="stat-val">${p.const}</div></div><div class="stat-badge-mini"><div class="stat-label">บัญชีรายชื่อ</div><div class="stat-val">${p.list}</div></div></div>
-                                `;
+                            `;
                             container.appendChild(card);
                         } else {
                             const totalEl = document.getElementById(`stat-total-${p.id}`);
