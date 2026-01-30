@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ElectionOS V4 - Premium Broadcast</title>
+    <title>ElectionOS V4 - BugFixed Final</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,7 +46,7 @@
         .justify-between { justify-content: space-between; }
         .w-full { width: 100%; }
 
-        /* --- DIRECTOR LAYOUT (Original Control Panel) --- */
+        /* --- DIRECTOR LAYOUT --- */
         #director-app {
             display: grid;
             grid-template-columns: 300px 1fr;
@@ -193,8 +193,8 @@
             display: grid; grid-template-columns: 45% 55%; 
             width: 90%; max-width: 1800px; height: 100%; align-items: center; 
             margin: 0 auto; gap: 50px;
-            /* MOVED DOWN 20px (from -120px to -100px) */
-            transform: translateY(-100px); 
+            /* ขยับขึ้นตามสั่ง 1.5 cm โดยประมาณ */
+            transform: translateY(-120px); 
         }
         
         #dash-bars { position: relative; width: 100%; height: 600px; }
@@ -219,13 +219,11 @@
 
         .party-bar-indicator { display: none; }
         
-        /* UPDATED: Clearer Text */
         .bar-name { 
             font-size: 1.8rem; font-weight: 700; 
-            /* Solid White for Maximum Clarity */
+            /* สีขาวทึบชัดเจน */
             color: #ffffff; 
             padding-left: 10px;
-            /* Strong Drop Shadow */
             text-shadow: 0 2px 4px rgba(0,0,0,0.9);
             background: none;
             -webkit-background-clip: unset;
@@ -285,16 +283,15 @@
         }
         .top3-score .update-glow { width: 120%; height: 120%; filter: blur(40px); }
 
-        /* --- ALL STATS SCENE (UPDATED) --- */
+        /* --- ALL STATS SCENE --- */
         .all-stats-container { position: relative; width: 100%; height: 100%; margin: 0 auto; }
         .stat-card {
             position: absolute; 
-            /* Gradient Background based on Theme Color */
             background: linear-gradient(135deg, 
                 color-mix(in srgb, var(--theme-color), #09090b 70%) 0%, 
                 #09090b 100%);
             border: 1px solid rgba(255,255,255,0.1);
-            border-top: 1px solid color-mix(in srgb, var(--theme-color), transparent 50%); /* Subtle top highlight */
+            border-top: 1px solid color-mix(in srgb, var(--theme-color), transparent 50%);
             border-radius: 12px; padding: 24px; display: flex; flex-direction: column;
             overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             width: 320px; height: 180px;
@@ -673,6 +670,13 @@
             // Scene 1: Dashboard (Ambiance Style Updated)
             if(state.scene === 'dashboard') {
                 const dashBars = document.getElementById('dash-bars'); 
+                
+                // *** CLEANUP: ลบแท่งที่ไม่มีใน 10 อันดับแรก หรือถูกลบออกไปแล้ว ***
+                const activeIds = sorted.slice(0, 10).map(p => `bar-${p.id}`);
+                document.querySelectorAll('#dash-bars .party-bar').forEach(el => {
+                    if (!activeIds.includes(el.id)) el.remove();
+                });
+
                 sorted.slice(0, 10).forEach((p, i) => {
                     let bar = document.getElementById(`bar-${p.id}`);
                     if (!bar) {
@@ -714,7 +718,13 @@
                 ];
 
                 top3Data.forEach(item => {
-                    if(!item.data) return;
+                    // *** CLEANUP: ถ้าไม่มีข้อมูลในอันดับนั้น ให้ลบการ์ดทิ้ง ***
+                    if(!item.data) {
+                        const existing = document.getElementById(`top3-slot-rank${item.rank}`);
+                        if(existing) existing.remove();
+                        return;
+                    }
+
                     const p = item.data;
                     let card = document.getElementById(`top3-slot-rank${item.rank}`);
                     if(!card) {
@@ -743,6 +753,12 @@
                 const container = document.getElementById('all-stats-list');
                 const cardW = 320; const cardH = 180; const gap = 20;
                 const containerW = container.offsetWidth;
+                
+                // *** CLEANUP: ลบการ์ดของพรรคที่ถูกลบทิ้ง ***
+                const activeIds = sorted.map(p => `stat-card-${p.id}`);
+                document.querySelectorAll('.all-stats-container .stat-card').forEach(el => {
+                    if (!activeIds.includes(el.id)) el.remove();
+                });
                 
                 if(containerW > 0) {
                     const cols = Math.max(1, Math.floor(containerW / (cardW + gap)));
