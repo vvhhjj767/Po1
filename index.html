@@ -134,7 +134,7 @@
         }
         .party-card:hover { border-color: rgba(255,255,255,0.3); }
 
-        .party-name { font-size: 1rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .party-name-dir { font-size: 1rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .control-pill {
             display: flex; align-items: center;
@@ -155,7 +155,6 @@
             width: 40px; background: transparent; border: none; color: white; text-align: center; font-family: var(--font-mono); font-weight: 700; font-size: 1rem;
         }
 
-        .checkbox-custom { width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
         .btn-del { background: transparent; border: none; color: #52525b; font-size: 1.2rem; cursor: pointer; transition: color 0.2s; }
         .btn-del:hover { color: var(--danger); }
 
@@ -194,52 +193,49 @@
             display: grid; grid-template-columns: 45% 55%; 
             width: 90%; max-width: 1800px; height: 100%; align-items: center; 
             margin: 0 auto; gap: 50px;
-            transform: translateY(-60px); 
+            /* MOVED UP ~1.5cm (approx 60px more than previous -60px) */
+            transform: translateY(-120px); 
         }
         
         #dash-bars { position: relative; width: 100%; height: 600px; }
 
         .party-bar {
             position: absolute; left: 0; right: 0;
-            height: 64px; /* ปรับความสูงเพิ่มให้ดูโปร่ง */
+            height: 64px; 
             display: flex; align-items: center; padding: 0 30px; justify-content: space-between; 
-            
-            /* พื้นหลังแบบไล่สีตามธีมพรรค จางหายไปทางขวา */
             background: linear-gradient(90deg, 
                 color-mix(in srgb, var(--theme-color), transparent 80%) 0%, 
                 color-mix(in srgb, var(--theme-color), transparent 95%) 60%, 
                 transparent 100%);
-            
-            /* เส้นขอบซ้ายเรืองแสง */
             border-left: 4px solid var(--theme-color);
             box-shadow: -10px 0 20px -5px var(--theme-color);
             border-radius: 4px;
-
-            /* Animation สลับตำแหน่งแบบ High-End (Smooth Cubic Bezier) */
             transition: top 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s;
-            
-            border-bottom: none; /* ลบ Border เดิมทิ้ง */
+            border-bottom: none; 
         }
 
         .scene.active .party-bar.entrance { animation: slideIn 0.8s cubic-bezier(0.2, 0.9, 0.2, 1) forwards; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-50px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* เอา Indicator ก้อนสี่เหลี่ยมเดิมออก เพราะใช้ Border เรืองแสงแทนแล้ว */
         .party-bar-indicator { display: none; }
         
+        /* UPDATED: Clearer Text */
         .bar-name { 
-            font-size: 1.8rem; font-weight: 700; color: white; 
-            text-shadow: 0 2px 10px rgba(0,0,0,0.8); padding-left: 10px;
-            /* เพิ่มมิติให้ชื่อพรรค */
-            background: linear-gradient(90deg, #fff, #aaa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem; font-weight: 700; 
+            /* Solid White for Maximum Clarity */
+            color: #ffffff; 
+            padding-left: 10px;
+            /* Strong Drop Shadow */
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
         }
         
         .bar-val { 
             font-size: 2.4rem; font-weight: 800; font-family: var(--font-mono); 
             color: white; z-index: 2; transition: transform 0.2s; 
-            text-shadow: 0 0 15px var(--theme-color); /* ตัวเลขเรืองแสงตามสี */
+            text-shadow: 0 0 15px var(--theme-color); 
         }
 
         /* --- GLOW EFFECT --- */
@@ -261,28 +257,20 @@
         .big-number { font-family: var(--font-mono); font-size: 8rem; font-weight: 800; line-height: 0.8; color: white; text-shadow: 0 0 60px rgba(255,255,255,0.15); }
         .big-label { font-size: 1.4rem; letter-spacing: 4px; color: var(--text-muted); font-weight: 600; margin-top: 10px; }
         
-        /* --- TOP 3 PODIUM (PILLAR OF LIGHT) --- */
+        /* --- TOP 3 PODIUM --- */
         .top3-container { position: relative; width: 100%; height: 75%; max-width: 1200px; margin: 0 auto; }
         .top3-card {
             position: absolute; bottom: 0; width: 300px;
-            
-            /* ไล่สีจากบนลงล่าง ให้เหมือนเสาแสง */
             background: linear-gradient(180deg, 
                 color-mix(in srgb, var(--theme-color), transparent 60%) 0%, 
                 color-mix(in srgb, var(--theme-color), transparent 90%) 50%, 
                 transparent 100%);
-            
-            /* เส้นบนสุดเรืองแสง */
             border-top: 6px solid var(--theme-color);
             box-shadow: 0 -15px 40px -10px var(--theme-color);
-            
-            /* ลบขอบข้างและล่างออก */
             border-left: none; border-right: none; border-bottom: none;
             border-radius: 4px 4px 0 0;
-            
             display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
             padding-top: 50px; 
-            
             transition: left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
             backdrop-filter: blur(4px);
         }
@@ -292,28 +280,32 @@
 
         .top3-score { 
             font-size: 7rem; font-family: var(--font-mono); font-weight: 800; 
-            color: white; 
-            text-shadow: 0 0 30px var(--theme-color); /* เรืองแสง */
+            color: white; text-shadow: 0 0 30px var(--theme-color); 
             position: relative; margin-top: 20px;
         }
         .top3-score .update-glow { width: 120%; height: 120%; filter: blur(40px); }
 
-        /* --- ALL STATS SCENE --- */
+        /* --- ALL STATS SCENE (UPDATED) --- */
         .all-stats-container { position: relative; width: 100%; height: 100%; margin: 0 auto; }
         .stat-card {
             position: absolute; 
-            background: #18181b; border: 1px solid rgba(255,255,255,0.1);
+            /* Gradient Background based on Theme Color */
+            background: linear-gradient(135deg, 
+                color-mix(in srgb, var(--theme-color), #09090b 70%) 0%, 
+                #09090b 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid color-mix(in srgb, var(--theme-color), transparent 50%); /* Subtle top highlight */
             border-radius: 12px; padding: 24px; display: flex; flex-direction: column;
-            overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             width: 320px; height: 180px;
             transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .stat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .stat-card-name { font-size: 1.4rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
-        .stat-card-total { font-size: 3rem; font-weight: 800; font-family: var(--font-mono); color: white; line-height: 1; z-index: 1; position: relative; }
+        .stat-card-name { font-size: 1.4rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .stat-card-total { font-size: 3rem; font-weight: 800; font-family: var(--font-mono); color: white; line-height: 1; z-index: 1; position: relative; text-shadow: 0 0 15px var(--theme-color); }
         .stat-card-total .update-glow { width: 150%; height: 150%; filter: blur(30px); }
         .stat-breakdown { display: flex; gap: 12px; margin-top: auto; }
-        .stat-badge-mini { flex: 1; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+        .stat-badge-mini { flex: 1; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
         .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
         .stat-val { font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono); color: white; margin-top: 4px; }
 
@@ -446,7 +438,7 @@
 
         <div id="scene-all_stats" class="scene">
             <div class="flex-col items-center w-full" style="height:100%;">
-                 <h2 style="font-family:var(--font-ui); font-size:2.5rem; margin-bottom:20px; font-weight:700; color:white; text-shadow:0 4px 10px rgba(0,0,0,0.5);">สรุปผลคะแนนอย่างไม่เป็นทางการ</h2>
+                 <h2 style="font-family:var(--font-ui); font-size:2.5rem; margin-bottom:20px; font-weight:700; color:white; text-shadow:0 4px 10px rgba(0,0,0,0.5); width:100%; text-align:center; padding-left:100px;">สรุปผลคะแนนอย่างไม่เป็นทางการ</h2>
                  <div id="all-stats-list" class="all-stats-container"></div>
             </div>
         </div>
@@ -604,7 +596,7 @@
                 row.className = 'party-card';
                 row.innerHTML = `
                     <input type="color" value="${p.color}" onchange="mod('${p.id}','color',this.value)" style="width:24px; height:24px; border:none; background:none; cursor:pointer; padding:0; border-radius:50%;">
-                    <div class="party-name" title="${p.name}">${p.name}</div>
+                    <div class="party-name-dir" title="${p.name}">${p.name}</div>
                     <div class="control-pill"><div class="control-label">เขต</div><button class="btn-circle" onclick="adj('${p.id}', 'const', -1)">-</button><input class="input-num" value="${p.const}" readonly><button class="btn-circle" onclick="adj('${p.id}', 'const', 1)">+</button></div>
                     <div class="control-pill"><div class="control-label">บัญชี</div><button class="btn-circle" onclick="adj('${p.id}', 'list', -1)">-</button><input class="input-num" value="${p.list}" readonly><button class="btn-circle" onclick="adj('${p.id}', 'list', 1)">+</button></div>
                     <button class="btn-del" onclick="del('${p.id}')">&times;</button>
@@ -687,7 +679,6 @@
                         bar = document.createElement('div');
                         bar.id = `bar-${p.id}`;
                         bar.className = 'party-bar entrance';
-                        // ส่งสีพรรคเข้า CSS Var
                         bar.style.setProperty('--theme-color', p.color);
                         
                         bar.innerHTML = `
@@ -697,8 +688,8 @@
                         dashBars.appendChild(bar);
                     }
                     
-                    bar.style.top = `${i * 80}px`; // Spacing adjustment
-                    bar.style.setProperty('--theme-color', p.color); // Update color just in case
+                    bar.style.top = `${i * 80}px`; 
+                    bar.style.setProperty('--theme-color', p.color); 
 
                     const valEl = bar.querySelector('.bar-val');
                     if(valEl.childNodes[0].nodeType === 3) valEl.childNodes[0].nodeValue = (p.const + p.list); 
@@ -747,7 +738,7 @@
                 });
             }
 
-            // Scene 3: All Stats (Grid Center)
+            // Scene 3: All Stats (Updated with Gradient)
             if(state.scene === 'all_stats') {
                 const container = document.getElementById('all-stats-list');
                 const cardW = 320; const cardH = 180; const gap = 20;
@@ -764,15 +755,19 @@
                             card = document.createElement('div');
                             card.id = `stat-card-${p.id}`;
                             card.className = 'stat-card';
+                            
+                            // Inject Color Variable
+                            card.style.setProperty('--theme-color', p.color);
+                            
                             card.innerHTML = `
                                 <div class="stat-card-header"><div class="stat-card-name" style="color:${p.color}">${p.name}</div><div id="stat-total-${p.id}" class="stat-card-total">${p.const + p.list}<div class="update-glow"></div></div></div>
                                 <div class="stat-breakdown"><div class="stat-badge-mini"><div class="stat-label">แบบแบ่งเขต</div><div class="stat-val">${p.const}</div></div><div class="stat-badge-mini"><div class="stat-label">บัญชีรายชื่อ</div><div class="stat-val">${p.list}</div></div></div>
-                                <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:${p.color};"></div>
-                            `;
+                                `;
                             container.appendChild(card);
                         } else {
                             const totalEl = document.getElementById(`stat-total-${p.id}`);
                             if(totalEl.childNodes[0].nodeType === 3) totalEl.childNodes[0].nodeValue = (p.const + p.list);
+                            card.style.setProperty('--theme-color', p.color);
                         }
                         
                         const col = i % cols;
