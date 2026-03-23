@@ -646,9 +646,15 @@
 </div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbw8JQEp7nV0LS-jy6BFeqq6A3fiw4Imqws6cbih6Vaq1bj66B5XYpnMhCLmfpECvz53/exec';
-const MY_SECRET = "My_Super_Secret_Password_999";
+// ใส่ URL ของ Cloudflare Worker ของคุณ
+const workerUrl = "https://orange-breeze-4229.vvhhjj767.workers.dev/";
 
+fetch(workerUrl)
+  .then(response => response.json())
+  .then(data => {
+    console.log("ได้ข้อมูลมาแล้ว โดยที่หน้าเว็บไม่มี API Key หลุดเลย!", data);
+  })
+  .catch(error => console.error("เกิดข้อผิดพลาด:", error));
 /* ═══════════════════════════════════════════════════════
    🔐 PIN MANAGER
    - เก็บ PIN hash ไว้ใน localStorage (ไม่เก็บตัวจริง)
