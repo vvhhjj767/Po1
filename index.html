@@ -413,7 +413,7 @@
                 <tr><td style="font-size:11pt;font-weight:bold">รวมยอดคงค้างสุทธิ:</td><td><div class="rec-net-price" style="color:#dc2626;border-bottom:3px double #dc2626"><span id="di-total">0.00</span></div></td></tr>
             </table>
         </div>
-        <div class="rec-footer-msg">เอกสารนี้ใช้สำหรับแจ้งยอดค้างชำระเท่านั้น<br>Powered by JAE-solution</div>
+        <div class="rec-footer-msg">เอกสารนี้จัดทำโดยอัตโนมัติเพื่อใช้สำหรับแจ้งยอดค้างชำระเท่านั้น พบปัญหาโปรดสอบถาม<br>Powered by JAE-solution</div>
     </div>
 </div>
 
@@ -907,7 +907,7 @@ const lineShare = {
             }).join('\n');
 
         // ลดความยาวเส้นแบ่งลง เพื่อไม่ให้ตกบรรทัดในแอป Line
-        return `💲ใบเสร็จรับเงิน\n` +
+        return `📄 นำส่ง บิลการขาย\n` +
                `━━━━━━━━━━━━━━\n` +
                `เลขที่: ${data.invoiceId}\n` +
                `📅 วันที่: ${date}\n` +
@@ -957,7 +957,7 @@ const lineShare = {
                `━━━━━━━━━━━━━━\n` +
                `นำไปหักยอดบิลดังนี้:\n${billLines}\n` +
                `━━━━━━━━━━━━━━\n` +
-               `💰 ยอดชำระรวม: ${data.totalAmount.toLocaleString()} ฿\n` +
+               `💰 ยอดรับชำระรวม: ${data.totalAmount.toLocaleString()} ฿\n` +
                `💳 ชำระผ่าน: ${data.paymentMethod}\n` +
                `━━━━━━━━━━━━━━\n` +
                `ขอบคุณครับ 🙏`;
