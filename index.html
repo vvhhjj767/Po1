@@ -298,7 +298,7 @@
                     </div>
                 </div>
                 <div class="flex justify-between items-center text-red-500 text-sm pb-4 border-b border-dashed border-gray-200">
-                    <span><i class="fa-solid fa-circle-minus text-[10px] mr-1"></i> ส่วนลด</span>
+                    <span><i class="fa-solid fa-circle-minus text-[10px] mr-1"></i> ส่วนหักลด</span>
                     <div class="flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg">
                         <span class="font-bold">-</span>
                         <input type="number" id="inp-discount" class="w-20 text-right bg-transparent border-none text-red-600 outline-none font-bold placeholder-red-300 text-sm" placeholder="0">
@@ -380,7 +380,7 @@
             <table class="rec-total-table">
                 <tr><td>รวมเงินสินค้า:</td><td width="35%" id="r-sub"></td></tr>
                 <tr><td style="color:blue">บวก ค่ามัดจำ:</td><td style="color:blue">+<span id="r-dep"></span></td></tr>
-                <tr><td style="color:red">หัก ส่วนลด:</td><td style="color:red">-<span id="r-disc"></span></td></tr>
+                <tr><td style="color:red">ลบ ส่วนหักลด:</td><td style="color:red">-<span id="r-disc"></span></td></tr>
                 <tr><td colspan="2"><div class="rec-net-price"><span id="r-total"></span></div></td></tr>
             </table>
         </div>
@@ -388,13 +388,13 @@
             <div class="rec-debt-row"><span class="rec-debt-label">ยอดคงค้างเก่ายกมา:</span><span class="rec-debt-val" id="r-debt-old"></span></div>
             <div class="rec-debt-row" style="color:#dc2626"><span class="rec-debt-label">ยอดคงค้างสุทธิ:</span><span class="rec-debt-val" id="r-debt-new"></span></div>
         </div>
-        <div class="rec-footer-msg">ขอบคุณที่อุดหนุนครับ / Thank you<br>Powered by NX-solution</div>
+        <div class="rec-footer-msg">ขอบคุณที่อุดหนุนครับ / Thank you<br>Powered by JAE-solution</div>
     </div>
 
     <div id="debt-invoice-render-area">
         <div class="rec-header-row">
             <div class="rec-header-left">
-                <div class="rec-title-th" style="color:#dc2626">ใบแจ้งหนี้</div>
+                <div class="rec-title-th" style="color:#dc2626">ใบแจ้งยอดค้างชำระ</div>
                 <div class="rec-title-en" style="color:#dc2626">INVOICE / DEBT NOTE</div>
                 <div class="rec-meta"><b>ลูกค้า:</b> <span id="di-name">-</span><br><b>วันที่พิมพ์:</b> <span id="di-date">-</span></div>
             </div>
@@ -410,10 +410,10 @@
         </table>
         <div class="rec-total-box" style="margin-top:20px">
             <table class="rec-total-table">
-                <tr><td style="font-size:11pt;font-weight:bold">รวมยอดหนี้สุทธิ:</td><td><div class="rec-net-price" style="color:#dc2626;border-bottom:3px double #dc2626"><span id="di-total">0.00</span></div></td></tr>
+                <tr><td style="font-size:11pt;font-weight:bold">รวมยอดคงค้างสุทธิ:</td><td><div class="rec-net-price" style="color:#dc2626;border-bottom:3px double #dc2626"><span id="di-total">0.00</span></div></td></tr>
             </table>
         </div>
-        <div class="rec-footer-msg">เอกสารนี้ใช้สำหรับแจ้งยอดค้างชำระเท่านั้น<br>Powered by NX-solution</div>
+        <div class="rec-footer-msg">เอกสารนี้ใช้สำหรับแจ้งยอดค้างชำระเท่านั้น<br>Powered by JAE-solution</div>
     </div>
 </div>
 
@@ -907,9 +907,9 @@ const lineShare = {
             }).join('\n');
 
         // ลดความยาวเส้นแบ่งลง เพื่อไม่ให้ตกบรรทัดในแอป Line
-        return `🍈 RECEIPT\n` +
+        return `💲ใบเสร็จรับเงิน\n` +
                `━━━━━━━━━━━━━━\n` +
-               `📋 เลขที่: ${data.invoiceId}\n` +
+               `เลขที่: ${data.invoiceId}\n` +
                `📅 วันที่: ${date}\n` +
                `👤 ลูกค้า: ${data.customerName}\n` +
                `━━━━━━━━━━━━━━\n` +
@@ -941,7 +941,7 @@ const lineShare = {
             
             const autoNote = b.isAutoAllocated ? ' (ออโต้)' : '';
             const statusNote = b.remainingAfterPay <= 0 
-                ? '✅ ปิดยอด' 
+                ? '🟢 ปิดยอด' 
                 : `คงค้าง ${b.remainingAfterPay.toLocaleString()}`;
 
             return `  • บิล: ${b.invoiceId}${autoNote}\n    ตัดยอด: ${b.paid.toLocaleString()} [${statusNote}]`;
@@ -949,9 +949,9 @@ const lineShare = {
 
         if (paidBills.length === 0) billLines = `  • ไม่มียอดค้าง / รับชำระล่วงหน้า`;
 
-        return `💵 ยืนยันการรับชำระยอดค้าง\n` +
+        return ` ✅ ยืนยันการรับชำระยอดค้าง\n` +
                `━━━━━━━━━━━━━━\n` +
-               `📋 อ้างอิง: ${data.invoiceId}\n` +
+               `อ้างอิง: ${data.invoiceId}\n` +
                `📅 วันที่: ${date}\n` +
                `👤 ลูกค้า: ${data.customerName}\n` +
                `━━━━━━━━━━━━━━\n` +
@@ -1278,7 +1278,7 @@ const app = {
         try {
             const res = await api.post({ action: 'get_debt', name: name });
             if(res.status==='success') Swal.fire(`หนี้คงค้าง: ${res.debt.toLocaleString()} บาท`, name, 'info');
-        } catch(e) { Swal.fire('Offline', 'ไม่สามารถเช็คหนี้ได้ขณะออฟไลน์', 'warning'); }
+        } catch(e) { Swal.fire('Offline', 'ไม่สามารถเช็คยอดหนี้ได้ขณะออฟไลน์', 'warning'); }
     },
     async checkDebtInModal() {
         const name = document.getElementById('debt-pay-name').value.trim();
