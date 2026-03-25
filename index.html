@@ -662,14 +662,25 @@ const pinManager = {
     _setupStep: 0,     // 0=first entry, 1=confirm
     _firstPin: '',
 
-    // Simple hash (ไม่ใช้ crypto เพื่อ compatibility)
-    hash(pin) {
-        let h = 0;
-        for (let i = 0; i < pin.length; i++) {
-            h = ((h << 5) - h) + pin.charCodeAt(i);
-            h |= 0;
+    // ยกระดับความปลอดภัยโดยใช้ Web Crypto API (SHA-256) และ Salt
+    async hash(pin) {
+        // ดึงหรือสร้าง Salt (ค่าสุ่มเฉพาะเครื่อง) เพื่อป้องกันการโจมตีแบบ Rainbow Tables
+        let salt = localStorage.getItem('pos_pin_salt');
+        if (!salt) {
+            const array = new Uint8Array(16);
+            window.crypto.getRandomValues(array);
+            salt = Array.from(array, dec => dec.toString(16).padStart(2, "0")).join('');
+            localStorage.setItem('pos_pin_salt', salt);
         }
-        return 'ph_' + Math.abs(h).toString(36) + pin.length;
+        
+        // ผสม PIN กับ Salt ก่อนนำไปเข้ารหัส
+        const encoder = new TextEncoder();
+        const data = encoder.encode(pin + salt);
+        
+        // เข้ารหัสด้วย SHA-256
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     },
 
     hasPin() { return !!localStorage.getItem(this.PIN_KEY); },
@@ -739,7 +750,7 @@ const pinManager = {
         }
     },
 
-    _submit() {
+    async _submit() {
         if (!this.hasPin()) {
             // กำลังตั้ง PIN ครั้งแรก
             if (this._setupStep === 0) {
@@ -751,7 +762,8 @@ const pinManager = {
                 document.getElementById('pin-error').innerText = '';
             } else {
                 if (this._input === this._firstPin) {
-                    localStorage.setItem(this.PIN_KEY, this.hash(this._input));
+                    const hashedPin = await this.hash(this._input);
+                    localStorage.setItem(this.PIN_KEY, hashedPin);
                     this.unlock();
                 } else {
                     this._showError('PIN ไม่ตรงกัน ลองใหม่อีกครั้ง');
@@ -762,7 +774,8 @@ const pinManager = {
             }
         } else {
             // ตรวจสอบ PIN
-            if (this.hash(this._input) === localStorage.getItem(this.PIN_KEY)) {
+            const hashedInput = await this.hash(this._input);
+            if (hashedInput === localStorage.getItem(this.PIN_KEY)) {
                 this.unlock();
             } else {
                 this._showError('PIN ไม่ถูกต้อง');
@@ -801,7 +814,7 @@ const pinManager = {
     },
 
     // บันทึก PIN ใหม่จาก Settings Modal
-    savePin() {
+    async savePin() {
         const oldInput = document.getElementById('set-old-pin').value;
         const newPin = document.getElementById('set-new-pin').value;
         const confirmPin = document.getElementById('set-confirm-pin').value;
@@ -814,12 +827,14 @@ const pinManager = {
         }
         // ตรวจสอบ PIN เก่า (ถ้ามี)
         if (this.hasPin()) {
-            if (this.hash(oldInput) !== localStorage.getItem(this.PIN_KEY)) {
+            const hashedOld = await this.hash(oldInput);
+            if (hashedOld !== localStorage.getItem(this.PIN_KEY)) {
                 return Swal.fire('PIN ปัจจุบันไม่ถูกต้อง', '', 'error');
             }
         }
 
-        localStorage.setItem(this.PIN_KEY, this.hash(newPin));
+        const hashedNew = await this.hash(newPin);
+        localStorage.setItem(this.PIN_KEY, hashedNew);
         document.getElementById('set-old-pin').value = '';
         document.getElementById('set-new-pin').value = '';
         document.getElementById('set-confirm-pin').value = '';
