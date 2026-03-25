@@ -1678,7 +1678,7 @@ const app = {
                     const remain = debtMap[d.invoiceId];
                     if(remain !== undefined && remain > 0.01) {
                         // แสดงข้อความค้างชำระให้ชัดเจน พร้อมพื้นหลังสีแดงเตือน
-                        displayStatus = `รอชำระ <span class="text-red-600 font-bold ml-1">(ค้าง ${remain.toLocaleString('th-TH')} ฿)</span>`;
+                        displayStatus = `รอชำระ <span class="text-red-600 font-bold ml-1"> </div>(ค้าง ${remain.toLocaleString('th-TH')} ฿)</span>`;
                         badgeClass = 'bg-red-50 text-red-700 border border-red-200';
                     }
                     else if(remain !== undefined && remain <= 0.01) {
