@@ -1677,8 +1677,8 @@ const app = {
                 if(d.paymentMethod.includes('รอชำระ')) {
                     const remain = debtMap[d.invoiceId];
                     if(remain !== undefined && remain > 0.01) {
-                        // แสดงข้อความค้างชำระให้ชัดเจน พร้อมพื้นหลังสีแดงเตือน
-                        displayStatus = `รอชำระ <span class="text-red-600 font-bold ml-1"> </div>(ค้าง ${remain.toLocaleString('th-TH')} ฿)</span>`;
+                        // แสดงข้อความค้างชำระให้ชัดเจน พร้อมพื้นหลังสีแดงเตือน (จัดเป็น 2 บรรทัด)
+                        displayStatus = `<span class="block leading-tight mb-0.5">รอชำระ</span><span class="block text-red-600 font-bold">(${remain.toLocaleString('th-TH')})</span>`;
                         badgeClass = 'bg-red-50 text-red-700 border border-red-200';
                     }
                     else if(remain !== undefined && remain <= 0.01) {
@@ -1692,7 +1692,7 @@ const app = {
                     <td class="p-4 w-[20%] text-xs font-mono text-gray-400"><div class="font-bold text-gray-600">${d.time}</div>${d.invoiceId}</td>
                     <td class="p-4 w-[25%] font-medium text-gray-700">${d.customerName}</td>
                     <td class="p-4 w-[20%] text-right font-bold text-base ${isDebtPay ? 'text-purple-600':''}">${d.totalAmount.toLocaleString()}</td>
-                    <td class="p-4 w-[15%] text-center text-xs"><span class="px-3 py-1.5 rounded-full ${badgeClass} inline-block font-medium shadow-sm">${displayStatus}</span></td>
+                    <td class="p-4 w-[15%] text-center text-xs"><span class="px-3 py-1.5 rounded-xl ${badgeClass} inline-block font-medium shadow-sm">${displayStatus}</span></td>
                     <td class="p-4 w-[20%] text-center">${actions}</td>
                 </tr>`;
             }).join('');
