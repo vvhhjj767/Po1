@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <style>
         body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; color: #1f2937; }
         ::-webkit-scrollbar { width: 6px; }
@@ -376,15 +377,26 @@
             <thead><tr><th style="width:55%">รายการ</th><th style="width:15%;text-align:right">ราคา</th><th style="width:15%;text-align:center">จำนวน</th><th style="width:15%;text-align:right">รวม</th></tr></thead>
             <tbody id="r-body"></tbody>
         </table>
-        <div class="rec-total-box">
-            <table class="rec-total-table">
+        
+        <!-- แก้ไข: เอา border-top ที่เป็นเส้นประออก -->
+        <div class="rec-total-box" style="justify-content: space-between; align-items: flex-end; margin-top: 5px; padding-top: 5px;">
+            <!-- ส่วนแสดง QR Code PromptPay (ย้ายมาฝั่งซ้าย) ขยับขึ้น 0.3cm -->
+            <div id="r-qr-section" class="hidden" style="text-align: center; margin-bottom: 4px; margin-left: 1.5cm; position: relative; top: -0.3cm;">
+                <div style="font-size: 8pt; font-weight: bold; color: #059669; margin-bottom: 0.2cm;">สแกนเพื่อชำระเงิน</div>
+                <canvas id="promptpay-qr" style="margin: 0 auto; display: block;"></canvas>
+            </div>
+
+            <!-- แก้ไข: เพิ่ม margin-bottom 0.5cm เพื่อดันตารางสรุปยอดขึ้นไป -->
+            <table class="rec-total-table" style="margin-left: auto; margin-bottom: 0.5cm;">
                 <tr><td>รวมเงินสินค้า:</td><td width="35%" id="r-sub"></td></tr>
                 <tr><td style="color:blue">บวก ค่ามัดจำ:</td><td style="color:blue">+<span id="r-dep"></span></td></tr>
                 <tr><td style="color:red">ลบ ส่วนหักลด:</td><td style="color:red">-<span id="r-disc"></span></td></tr>
                 <tr><td colspan="2"><div class="rec-net-price"><span id="r-total"></span></div></td></tr>
             </table>
         </div>
-        <div id="r-debt-section" class="rec-debt-box hidden">
+        
+        <!-- แก้ไข: ขยับเฉพาะส่วนแจ้งยอดค้างชำระขึ้น 0.5cm -->
+        <div id="r-debt-section" class="rec-debt-box hidden" style="position: relative; top: -0.5cm;">
             <div class="rec-debt-row"><span class="rec-debt-label">ยอดคงค้างเก่ายกมา:</span><span class="rec-debt-val" id="r-debt-old"></span></div>
             <div class="rec-debt-row" style="color:#dc2626"><span class="rec-debt-label">ยอดคงค้างสุทธิ:</span><span class="rec-debt-val" id="r-debt-new"></span></div>
         </div>
@@ -420,7 +432,7 @@
 <!-- ═══════════════════════════════════════════
      📱 LINE SHARE MODAL
 ═══════════════════════════════════════════ -->
-<div id="line-share-modal" class="hidden fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+<div id="line-share-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="font-bold text-lg text-gray-800 flex items-center gap-2">
@@ -567,9 +579,14 @@
 
 <div id="bank-modal" class="hidden fixed inset-0 bg-slate-900/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
-        <h3 class="font-bold text-lg text-blue-600 mb-4 border-b pb-2 flex items-center gap-2"><i class="fa-solid fa-building-columns"></i> จัดการบัญชีธนาคาร</h3>
+        <div class="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 class="font-bold text-lg text-blue-600 flex items-center gap-2"><i class="fa-solid fa-building-columns"></i> จัดการบัญชี</h3>
+            <!-- เพิ่มปุ่มดึงข้อมูลจากชีตไว้มุมบนขวา เผื่อข้อมูลหาย -->
+            <button onclick="app.forceLoadBanks(this)" class="text-[10px] bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-lg border border-blue-100 hover:bg-blue-100 font-bold shadow-sm transition-colors"><i class="fa-solid fa-cloud-arrow-down"></i> ดึงจากชีตใหม่</button>
+        </div>
         <div class="space-y-3 mb-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <input id="new-bank-name" class="custom-input w-full p-2 border rounded-lg text-sm" placeholder="ชื่อธนาคาร (เช่น กสิกร, ไทยพาณิชย์)">
+            <input id="new-bank-promptpay" class="custom-input w-full p-2 border rounded-lg text-sm mt-2" placeholder="เบอร์พร้อมเพย์ / เลขบัตร ปชช. (ถ้ามี)">
             <button onclick="app.addBank()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow-md font-bold text-sm mt-2"><i class="fa-solid fa-plus"></i> เพิ่มบัญชี</button>
         </div>
         <div class="max-h-64 overflow-y-auto border rounded-xl p-2 bg-white">
@@ -678,8 +695,42 @@
 </div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbw8JQEp7nV0LS-jy6BFeqq6A3fiw4Imqws6cbih6Vaq1bj66B5XYpnMhCLmfpECvz53/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxxt581KLjOjPSfuuyo4qy1j5PKcO1QZXH-H7kkZZMuq1GnpiiXq9uMi1lGja_ELIhv/exec';
 const MY_SECRET = "My_Super_Secret_Password_999";
+const SHOP_PROMPTPAY_ID = "0811147477"; // เปลี่ยนเป็นเบอร์พร้อมเพย์ หรือ เลขบัตร ปชช. ของร้าน
+
+/* ═══════════════════════════════════════════════════════
+   💰 PROMPTPAY PAYLOAD GENERATOR
+═══════════════════════════════════════════════════════ */
+const promptPayHelper = {
+    crc16(data) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc ^= data.charCodeAt(i) << 8;
+            for (let j = 0; j < 8; j++) {
+                if ((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021;
+                else crc <<= 1;
+            }
+        }
+        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    },
+    generate(id, amount) {
+        let target = id.replace(/[^0-9]/g, '');
+        if (target.length >= 15) target = "0315" + target; // e-Wallet
+        else if (target.length === 13) target = "0213" + target; // ID Card
+        else if (target.length === 10) target = "01130066" + target.substring(1); // Mobile
+        else target = "02" + target.length.toString().padStart(2, '0') + target;
+
+        let payload = "00020101021229370016A000000677010111" + target + "5802TH5303764";
+        if (amount) {
+            let amtStr = parseFloat(amount).toFixed(2);
+            payload += "54" + amtStr.length.toString().padStart(2, '0') + amtStr;
+        }
+        payload += "6304";
+        return payload + this.crc16(payload);
+    }
+};
+
 /* ═══════════════════════════════════════════════════════
    🔐 PIN MANAGER
    - เก็บ PIN hash ไว้ใน localStorage (ไม่เก็บตัวจริง)
@@ -910,15 +961,13 @@ const pinManager = {
 const lineShare = {
     _lastReceipt: null,
     _lastDebtReceipt: null,
-    _currentMode: 'sale', // 'sale' หรือ 'debt'
+    _currentMode: 'sale',
 
-    // เก็บข้อมูลบิลล่าสุดไว้สำหรับ share (รายการขายปกติ)
     store(data, cartItems, sub, dep, disc, total) {
         this._currentMode = 'sale';
         this._lastReceipt = { data, cartItems, sub, dep, disc, total };
     },
 
-    // เก็บข้อมูลสำหรับการรับชำระหนี้
     storeDebt(data, paidBills) {
         this._currentMode = 'debt';
         this._lastDebtReceipt = { data, paidBills };
@@ -935,33 +984,42 @@ const lineShare = {
         if (!r) return '';
         const { data, cartItems, sub, dep, disc, total } = r;
         
-        // แก้ไขการดึงวันที่ให้ตรงกับ Local Time เสมอ
-        const [yyyy, mm, dd] = data.date.split('-');
-        const dateObj = new Date(yyyy, mm - 1, dd);
-        const date = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+        // กัน Error เรื่องวันที่
+        let dateStr = data.date || '';
+        try {
+            if (dateStr.includes('-')) {
+                const [yyyy, mm, dd] = dateStr.split('-');
+                const dObj = new Date(yyyy, mm - 1, dd);
+                if (!isNaN(dObj)) dateStr = dObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+        } catch(e) {}
 
         let itemLines = cartItems
             .filter(i => i.name)
             .map(i => {
                 const qty = i.qty || 0;
-                const price = i.price || 0;
-                // ตัดส่วนยอดรวมของแต่ละรายการออก ให้เหลือแค่ ชื่อ ปริมาณ x ราคา
+                const price = Number(i.price) || 0;
                 return `  • ${i.name} ${qty} x ${price.toLocaleString()}`;
             }).join('\n');
 
-        // ลดความยาวเส้นแบ่งลง เพื่อไม่ให้ตกบรรทัดในแอป Line
+        // กัน Error เรื่องตัวเลข Null
+        const numSub = parseFloat(String(sub || '0').replace(/,/g, '')) || 0;
+        const numDep = parseFloat(String(dep || '0').replace(/,/g, '')) || 0;
+        const numDisc = parseFloat(String(disc || '0').replace(/,/g, '')) || 0;
+        const numTotal = Number(total) || 0;
+
         return `📄 นำส่ง บิลการขาย\n` +
                `━━━━━━━━━━━━━━\n` +
                `เลขที่: ${data.invoiceId}\n` +
-               `📅 วันที่: ${date}\n` +
+               `📅 วันที่: ${dateStr}\n` +
                `👤 ลูกค้า: ${data.customerName}\n` +
                `━━━━━━━━━━━━━━\n` +
                `รายการ:\n${itemLines}\n` +
                `━━━━━━━━━━━━━━\n` +
-               `รวมสินค้า:  ${parseFloat(sub.replace(/,/g,'')).toLocaleString()} ฿\n` +
-               (parseFloat(dep.replace(/,/g,'')) > 0 ? `บวกมัดจำ:  +${parseFloat(dep.replace(/,/g,'')).toLocaleString()} ฿\n` : '') +
-               (parseFloat(disc) > 0 ? `ส่วนลด:    -${parseFloat(disc).toLocaleString()} ฿\n` : '') +
-               `💰 ยอดสุทธิ: ${total.toLocaleString()} ฿\n` +
+               `รวมสินค้า:  ${numSub.toLocaleString()} ฿\n` +
+               (numDep > 0 ? `บวกมัดจำ:  +${numDep.toLocaleString()} ฿\n` : '') +
+               (numDisc > 0 ? `ส่วนลด:    -${numDisc.toLocaleString()} ฿\n` : '') +
+               `💰 ยอดสุทธิ: ${numTotal.toLocaleString()} ฿\n` +
                `💳 ชำระโดย: ${data.paymentMethod}\n` +
                `━━━━━━━━━━━━━━\n` +
                `ขอบคุณที่อุดหนุนครับ 🙏`;
@@ -972,21 +1030,23 @@ const lineShare = {
         if (!r) return '';
         const { data, paidBills } = r;
         
-        const [yyyy, mm, dd] = data.date.split('-');
-        const dateObj = new Date(yyyy, mm - 1, dd);
-        const date = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+        let dateStr = data.date || '';
+        try {
+            if (dateStr.includes('-')) {
+                const [yyyy, mm, dd] = dateStr.split('-');
+                const dObj = new Date(yyyy, mm - 1, dd);
+                if (!isNaN(dObj)) dateStr = dObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+            }
+        } catch(e) {}
 
-        // สร้างรายการบิลที่ถูกนำไปตัดยอดแบบใหม่ (เอาวันที่ออก และเพิ่มสถานะการปิดยอด)
         let billLines = paidBills.map(b => {
             if (b.invoiceId === 'OVERPAYMENT') {
                 return `  • ชำระเกินยอดค้างทั้งหมด\n    จำนวน: ${b.paid.toLocaleString()}`;
             }
-            
             const autoNote = b.isAutoAllocated ? ' (ออโต้)' : '';
             const statusNote = b.remainingAfterPay <= 0 
                 ? '🟢 ปิดยอด' 
                 : `คงค้าง ${b.remainingAfterPay.toLocaleString()}`;
-
             return `  • บิล: ${b.invoiceId}${autoNote}\n    ตัดยอด: ${b.paid.toLocaleString()} [${statusNote}]`;
         }).join('\n');
 
@@ -995,32 +1055,55 @@ const lineShare = {
         return ` ✅ ยืนยันการรับชำระยอดค้าง\n` +
                `━━━━━━━━━━━━━━\n` +
                `อ้างอิง: ${data.invoiceId}\n` +
-               `📅 วันที่: ${date}\n` +
+               `📅 วันที่: ${dateStr}\n` +
                `👤 ลูกค้า: ${data.customerName}\n` +
                `━━━━━━━━━━━━━━\n` +
                `นำไปหักยอดบิลดังนี้:\n${billLines}\n` +
                `━━━━━━━━━━━━━━\n` +
-               `💰 ยอดรับชำระรวม: ${data.totalAmount.toLocaleString()} ฿\n` +
+               `💰 ยอดรับชำระรวม: ${(Number(data.totalAmount)||0).toLocaleString()} ฿\n` +
                `💳 ชำระผ่าน: ${data.paymentMethod}\n` +
                `━━━━━━━━━━━━━━\n` +
                `ขอบคุณครับ 🙏`;
     },
 
     openModal() {
-        if (this._currentMode === 'sale' && !this._lastReceipt) return;
-        if (this._currentMode === 'debt' && !this._lastDebtReceipt) return;
-        
-        const msg = this.buildMessage();
-        document.getElementById('line-message-preview').innerText = msg;
-        ui.openModal('line-share-modal');
+        try {
+            if (this._currentMode === 'sale' && !this._lastReceipt) {
+                Swal.fire('แจ้งเตือน', 'ยังไม่มีข้อมูลบิลล่าสุดให้แชร์', 'warning');
+                return;
+            }
+            if (this._currentMode === 'debt' && !this._lastDebtReceipt) {
+                Swal.fire('แจ้งเตือน', 'ยังไม่มีข้อมูลรับชำระหนี้ล่าสุดให้แชร์', 'warning');
+                return;
+            }
+            
+            const msg = this.buildMessage();
+            document.getElementById('line-message-preview').innerText = msg;
+            ui.openModal('line-share-modal');
+        } catch (e) {
+            console.error("Line Share Error:", e);
+            Swal.fire('ข้อผิดพลาด', 'เกิดปัญหาการสร้างข้อความ: ' + e.message, 'error');
+        }
     },
 
     sendLine() {
-        const msg = this.buildMessage();
-        const encoded = encodeURIComponent(msg);
-        // Line Share URL — เปิดแอป Line พร้อม pre-filled text
-        window.open(`https://line.me/R/msg/text/?${encoded}`, '_blank');
-        ui.closeModal('line-share-modal');
+        try {
+            const msg = this.buildMessage();
+            const encoded = encodeURIComponent(msg);
+            const url = `https://line.me/R/msg/text/?${encoded}`;
+            
+            // เปลี่ยนวิธีเปิดลิงก์เพื่อแก้ปัญหา Popup ถูกบล็อกในมือถือ
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            ui.closeModal('line-share-modal');
+        } catch(e) {
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเปิดแอป Line ได้', 'error');
+        }
     },
 
     copyText() {
@@ -1143,11 +1226,51 @@ const app = {
     init() {
         this.resetForm();
         this.renderProdList();
-        this.renderBankList();
+        this.loadBanks(); // <--- เรียกใช้โหลดบัญชีธนาคาร
         this.updateTime();
         setInterval(() => this.updateTime(), 60000);
         document.getElementById('inp-discount').addEventListener('input', () => this.renderCart());
         queueManager.updateIndicator();
+    },
+    async loadBanks() {
+        // 1. ดึงของเดิมจาก LocalStorage มาโชว์ก่อน (เก็บของเก่าที่เคยกรอกไว้เป็นหลักเสมอ)
+        const cachedBanks = localStorage.getItem('pos_banks');
+        if (cachedBanks && JSON.parse(cachedBanks).length > 0) {
+            this.data.banks = JSON.parse(cachedBanks);
+            this.renderBankList();
+            return; // 🛑 หยุดทำงานตรงนี้เลย ไม่ไปดึง Google Sheet มาทับของเดิม เพื่อรักษาสิ่งที่กรอกไว้
+        }
+
+        // 2. ถ้า LocalStorage ว่างเปล่า ถึงจะไปดึงจากหลังบ้าน
+        try {
+            const res = await api.post({ action: 'get_banks' }, true); 
+            if (res.status === 'success' && res.data.length > 0) {
+                this.data.banks = res.data;
+                localStorage.setItem('pos_banks', JSON.stringify(res.data)); // บันทึกข้อมูลใหม่
+                this.renderBankList();
+            }
+        } catch(e) {
+            console.warn("ระบบออฟไลน์ ใช้ข้อมูลเดิมไปก่อน");
+        }
+    },
+    async forceLoadBanks(btnEl) {
+        // ฟังก์ชันสำหรับกดดึงข้อมูลจากชีตแบบแมนนวล (เผื่อข้อมูลหาย)
+        const originalText = btnEl.innerHTML;
+        btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังดึง...';
+        try {
+            const res = await api.post({ action: 'get_banks' }, true);
+            if (res.status === 'success') {
+                this.data.banks = res.data;
+                localStorage.setItem('pos_banks', JSON.stringify(res.data));
+                this.renderBankList();
+                Swal.fire({icon: 'success', title: 'อัปเดตบัญชีสำเร็จ', timer: 1500, showConfirmButton: false});
+            } else {
+                Swal.fire('ไม่พบข้อมูล', 'ไม่พบบัญชีธนาคารใน Google Sheet', 'info');
+            }
+        } catch(e) {
+            Swal.fire('ผิดพลาด', 'ไม่สามารถเชื่อมต่อดึงข้อมูลได้', 'error');
+        }
+        btnEl.innerHTML = originalText;
     },
     clearDebtForm() {
         document.getElementById('debt-pay-name').value = '';
@@ -1219,7 +1342,7 @@ const app = {
     },
     renderBankList() {
         document.getElementById('bank-list-manage').innerHTML = this.data.banks.map(b =>
-            `<tr><td class="p-2 font-medium">${b.name}</td>
+            `<tr><td class="p-2 font-medium">${b.name} ${b.promptpay ? `<br><span class="text-xs text-gray-500"><i class="fa-solid fa-qrcode"></i> ${b.promptpay}</span>` : ''}</td>
             <td class="text-center text-red-400 hover:text-red-600 cursor-pointer p-2" onclick="app.delBank(${b.id})"><i class="fa-solid fa-trash"></i></td></tr>`
         ).join('');
         const chipsContainer = document.getElementById('bank-list-chips');
@@ -1236,10 +1359,12 @@ const app = {
     },
     addBank() {
         const n = document.getElementById('new-bank-name').value.trim();
+        const pp = document.getElementById('new-bank-promptpay').value.trim(); // รับค่าเบอร์พร้อมเพย์
         if(n) {
-            this.data.banks.push({id:Date.now(), name:n});
+            this.data.banks.push({id:Date.now(), name:n, promptpay: pp}); // บันทึก promptpay เข้าไปด้วย
             localStorage.setItem('pos_banks', JSON.stringify(this.data.banks));
             document.getElementById('new-bank-name').value = '';
+            document.getElementById('new-bank-promptpay').value = ''; // ล้างค่าในช่องกรอก
             this.renderBankList();
         }
     },
@@ -1591,7 +1716,7 @@ const app = {
             Swal.fire({
                 icon:'success', 
                 title: res.offline ? 'บันทึกออฟไลน์แล้ว' : 'บันทึกสำเร็จ',
-                html: `<button onclick="lineShare.openModal(); Swal.close();" style="background:#06C755;color:white;border:none;padding:10px 24px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;margin:8px auto 0">📱 แชร์ผ่าน Line</button>`,
+                html: `<button onclick="lineShare.openModal(); Swal.close();" style="background:#06C755;color:white;border:none;border-radius:14px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(6,199,85,0.35);margin-top:8px;font-family:'Prompt', sans-serif;"><svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg> ส่งผ่าน Line</button>`,
                 showConfirmButton:false, 
                 timer: 3000
             });
@@ -1646,7 +1771,7 @@ const app = {
         const bankFilter = document.getElementById('rpt-bank-filter').value;
         const startDate = document.getElementById('rpt-start-date').value;
         const endDate = document.getElementById('rpt-end-date').value;
-        const filtered = this.data.reportData.filter(d => {
+        let filtered = this.data.reportData.filter(d => {
             const matchText = (d.customerName||'').toLowerCase().includes(search) || (d.invoiceId||'').toLowerCase().includes(search);
             let matchDate = true;
             if(startDate && d.date < startDate) matchDate = false;
@@ -1654,7 +1779,7 @@ const app = {
             let matchBank = true;
             if(bankFilter) {
                 if(bankFilter === 'เงินสด') { if(!d.paymentMethod.includes('เงินสด')) matchBank = false; }
-                else if(bankFilter === 'รอชำระ') { if(!d.paymentMethod.includes('รอชำระ')) matchBank = false; }
+                else if(bankFilter === 'รอชำระ') { if(!d.paymentMethod.includes('รอชำระ') && d.paymentMethod !== 'ชำระแล้ว (C)') matchBank = false; }
                 else { if(!d.paymentMethod.includes(`โอน(${bankFilter})`)) matchBank = false; }
             }
             return matchText && matchDate && matchBank;
@@ -1674,20 +1799,6 @@ const app = {
         const sunday = new Date(monday);
         sunday.setUTCDate(monday.getUTCDate() + 6);
         const endOfWeekStr = sunday.toISOString().slice(0, 10);
-
-        let sumMonth=0, sumWeek=0, sumToday=0;
-        this.data.reportData.forEach(d => {
-            if(d.note === 'ชำระหนี้ค้าง') return;
-            
-            // ยอดเดือนนี้: เช็คว่าขึ้นต้นด้วย YYYY-MM ตรงกับเดือนปัจจุบัน
-            if(d.date.startsWith(currentMonthPrefix)) sumMonth += d.totalAmount;
-            
-            // ยอดสัปดาห์นี้: เช็คว่าวันที่อยู่ในช่วง จันทร์ - อาทิตย์
-            if(d.date >= startOfWeekStr && d.date <= endOfWeekStr) sumWeek += d.totalAmount;
-            
-            // ยอดวันนี้
-            if(d.date === todayStr) sumToday += d.totalAmount;
-        });
 
         const debtMap = {};
         const custGroups = {};
@@ -1744,8 +1855,38 @@ const app = {
             });
         });
 
+        // คัดกรองอีกรอบสำหรับฟิลเตอร์ "รอชำระ" เพื่อแสดงเฉพาะบิลที่ยอดค้าง > 0 จริงๆ
+        if (bankFilter === 'รอชำระ') {
+            filtered = filtered.filter(d => {
+                if (d.note === 'ชำระหนี้ค้าง') return false;
+                const remain = debtMap[d.invoiceId];
+                return remain !== undefined && remain > 0.01;
+            });
+        }
+
+        // ✅ ย้าย loop มาไว้ตรงนี้ และแก้นับ totalAmount ตรงๆ ไม่หัก remain
+        let sumMonth=0, sumWeek=0, sumToday=0;
+        this.data.reportData.forEach(d => {
+            if(d.note === 'ชำระหนี้ค้าง') return;
+            if(d.date.startsWith(currentMonthPrefix)) sumMonth += d.totalAmount;
+            if(d.date >= startOfWeekStr && d.date <= endOfWeekStr) sumWeek += d.totalAmount;
+            if(d.date === todayStr) sumToday += d.totalAmount;
+        });
+
+        // ✅ แก้ไข Logic การบวกยอดรวม Filtered 
         let sumFilteredTotal = 0;
-        filtered.forEach(d => { if(d.note !== 'ชำระหนี้ค้าง') { if(d.paymentMethod.includes('รอชำระ')) { const remain = debtMap[d.invoiceId]; sumFilteredTotal += (remain !== undefined ? remain : d.totalAmount); } else { sumFilteredTotal += d.totalAmount; } } });
+        filtered.forEach(d => { 
+            if(d.note !== 'ชำระหนี้ค้าง') { 
+                // ถ้าเลือกดูเฉพาะ "รอชำระ" ให้โชว์ยอดหนี้ที่ยังค้างรวมกัน
+                if(bankFilter === 'รอชำระ') { 
+                    const remain = debtMap[d.invoiceId]; 
+                    sumFilteredTotal += (remain !== undefined ? remain : d.totalAmount); 
+                } else { 
+                    // ถ้าดูทั้งหมด หรือดูเงินสด/โอน ให้โชว์ยอดขายตั้งต้นรวมกัน
+                    sumFilteredTotal += d.totalAmount; 
+                } 
+            } 
+        });
         
         // เก็บค่าที่คำนวณได้ไว้สำหรับตอนกดเปิดดู
         this.data.calculatedTotals = {
@@ -1772,7 +1913,7 @@ const app = {
             if (!acc[date]) acc[date] = { date, total: 0, pending: 0, items: [] };
             if (curr.note !== 'ชำระหนี้ค้าง') { 
                 acc[date].total += curr.totalAmount; 
-                if(curr.paymentMethod.includes('รอชำระ')) { 
+                if(curr.paymentMethod.includes('รอชำระ') || curr.paymentMethod === 'ชำระแล้ว (C)') { 
                     const remain = debtMap[curr.invoiceId]; 
                     if (remain !== undefined && remain > 0.01) {
                         acc[date].pending += remain; 
@@ -1791,11 +1932,11 @@ const app = {
                 let badgeClass = 'bg-gray-100 text-gray-600';
                 if(d.paymentMethod.includes('เงินสด')) badgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200';
                 else if(d.paymentMethod.includes('โอน')) badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
-                else if(d.paymentMethod.includes('รอชำระ')) badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
+                else if(d.paymentMethod.includes('รอชำระ') || d.paymentMethod === 'ชำระแล้ว (C)') badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200';
                 if(d.note === 'ชำระหนี้ค้าง') badgeClass = 'bg-purple-100 text-purple-700 border border-purple-200';
                 
                 let displayStatus = d.note === 'ชำระหนี้ค้าง' ? 'รับชำระหนี้' : d.paymentMethod;
-                if(d.paymentMethod.includes('รอชำระ')) {
+                if(d.paymentMethod.includes('รอชำระ') || d.paymentMethod === 'ชำระแล้ว (C)') {
                     const remain = debtMap[d.invoiceId];
                     if(remain !== undefined && remain > 0.01) {
                         // โชว์ตัวเลขค้างชำระในตารางเสมอ ไม่ต้องซ่อนตามการ์ด
@@ -1885,7 +2026,7 @@ const app = {
             Swal.fire({
                 icon:'success',
                 title: res.offline ? 'บันทึกออฟไลน์แล้ว' : 'บันทึกเรียบร้อย',
-                html: `<button onclick="lineShare.openModal(); Swal.close();" style="background:#06C755;color:white;border:none;padding:10px 24px;border-radius:12px;font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;margin:8px auto 0">📱 แชร์ผ่าน Line</button>`,
+                html: `<button onclick="lineShare.openModal(); Swal.close();" style="background:#06C755;color:white;border:none;border-radius:14px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(6,199,85,0.35);margin-top:8px;font-family:'Prompt', sans-serif;"><svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg> ส่งผ่าน Line</button>`,
                 showConfirmButton: false,
                 timer: 3000
             });
@@ -1914,6 +2055,49 @@ const app = {
         document.getElementById('r-dep').innerText = document.getElementById('sum-deposit').innerText;
         document.getElementById('r-disc').innerText = document.getElementById('inp-discount').value || '0.00';
         document.getElementById('r-total').innerText = data.totalAmount.toLocaleString();
+        
+        // สร้าง QR Code พร้อมเพย์ ถ้ารับชำระด้วยการโอน
+        const qrSection = document.getElementById('r-qr-section');
+        if (data.paymentMethod.includes('โอน')) {
+            qrSection.classList.remove('hidden');
+            
+            let targetPromptPay = SHOP_PROMPTPAY_ID; // ค่าเริ่มต้น (เบอร์หลัก)
+            
+            // --- ดึงเบอร์พร้อมเพย์จากบัญชีที่เลือกเสมอ ---
+            let bankName = "";
+            
+            // 1. ลองใช้บัญชีที่กำลังกดเลือกอยู่ในระบบก่อน (แม่นยำที่สุด)
+            if (this.data.selectedBank && data.paymentMethod.includes(this.data.selectedBank)) {
+                bankName = this.data.selectedBank;
+            } else {
+                // 2. ถ้าไม่มี (เช่นตอนปริ้นท์ย้อนหลัง) ค่อยแกะจากชื่อใน paymentMethod เช่น โอน(กสิกรไทย)
+                const match = data.paymentMethod.match(/โอน\((.*)\)/);
+                if (match && match[1]) bankName = match[1].trim();
+            }
+
+            // นำชื่อบัญชีไปหาเบอร์พร้อมเพย์ใน LocalStorage ของคุณ
+            if (bankName) {
+                const selectedBankObj = this.data.banks.find(b => b.name === bankName);
+                if (selectedBankObj && selectedBankObj.promptpay && selectedBankObj.promptpay.toString().trim() !== '') {
+                    targetPromptPay = selectedBankObj.promptpay.toString().trim();
+                } else {
+                    console.warn(`ไม่พบเบอร์พร้อมเพย์ของบัญชี ${bankName} ในระบบ จะใช้เบอร์หลักแทน`);
+                }
+            }
+
+            // สร้าง QR Code
+            const payload = promptPayHelper.generate(targetPromptPay, data.totalAmount);
+            new QRious({
+                element: document.getElementById('promptpay-qr'),
+                value: payload,
+                size: 85, 
+                level: 'M'
+            });
+            
+        } else {
+            qrSection.classList.add('hidden');
+        }
+
         const debtDiv = document.getElementById('r-debt-section');
         if(data.paymentMethod === 'รอชำระ' || (oldDebt !== null && oldDebt > 0)) {
             debtDiv.classList.remove('hidden');
