@@ -124,6 +124,13 @@
 
         /* ─── SETTINGS MODAL ─── */
         #settings-modal input[type=password] { letter-spacing: 0.3em; font-size: 1.2rem; }
+        
+        /* ─── DASHBOARD ─── */
+        .dash-card { background: white; border-radius: 1.25rem; border: 1px solid #f3f4f6; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); padding: 1.25rem; position: relative; overflow: hidden; }
+        .dash-icon-bg { position: absolute; right: -10px; top: -10px; opacity: 0.05; font-size: 5rem; }
+        .trend-up { color: #10b981; background: #d1fae5; }
+        .trend-down { color: #ef4444; background: #fee2e2; }
+        .trend-flat { color: #6b7280; background: #f3f4f6; }
     </style>
 </head>
 <body class="h-screen flex flex-col bg-slate-50">
@@ -606,7 +613,12 @@
                 <span class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center"><i class="fa-solid fa-chart-pie"></i></span>
                 รายงานยอดขาย
             </h3>
-            <button onclick="ui.closeModal('report-modal')" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 text-xl flex items-center justify-center transition-colors"><i class="fa-solid fa-times"></i></button>
+            <div class="flex items-center gap-3">
+                <button onclick="app.openDashboard()" class="bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-100 transition-colors flex items-center gap-2 border border-indigo-100 shadow-sm">
+                    <i class="fa-solid fa-chart-line"></i> <span class="hidden sm:inline">วิเคราะห์ธุรกิจ (Dashboard)</span>
+                </button>
+                <button onclick="ui.closeModal('report-modal')" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 text-xl flex items-center justify-center transition-colors"><i class="fa-solid fa-times"></i></button>
+            </div>
         </div>
         <div class="p-6 overflow-y-auto flex-1 bg-gray-50">
             <div class="bg-white p-5 rounded-2xl border border-gray-200 mb-6 shadow-sm space-y-4">
@@ -685,6 +697,194 @@
         <div class="flex gap-3">
             <button onclick="ui.closeModal('edit-modal')" class="flex-1 bg-gray-100 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-200">ยกเลิก</button>
             <button onclick="app.confirmEdit()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow-lg hover:bg-blue-700">บันทึก</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     📊 DASHBOARD MODAL (วิเคราะห์ยอดขาย)
+═══════════════════════════════════════════ -->
+<div id="analysis-modal" class="hidden fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden">
+        
+        <!-- Header -->
+        <div class="p-5 bg-white border-b flex justify-between items-center z-10 shadow-sm">
+            <div class="flex flex-col">
+                <h3 class="font-bold text-2xl text-indigo-700 flex items-center gap-3">
+                    <span class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shadow-inner"><i class="fa-solid fa-chart-simple"></i></span>
+                    วิเคราะห์ยอดขายและธุรกิจ
+                </h3>
+                <p class="text-xs text-gray-500 font-medium ml-14 mt-1">Executive Summary & Analytics</p>
+            </div>
+            <button onclick="ui.closeModal('analysis-modal')" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 text-xl flex items-center justify-center transition-colors"><i class="fa-solid fa-times"></i></button>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white px-6 py-3 border-b flex flex-wrap gap-3 items-center text-sm z-10 relative">
+            <span class="font-bold text-gray-500 mr-1"><i class="fa-solid fa-filter"></i> ช่วงเวลา:</span>
+            <button onclick="app.setDashFilter('today')" id="btn-dash-today" class="dash-btn-filter px-3 py-1.5 rounded-full border bg-gray-50 text-gray-600 hover:bg-indigo-50 font-medium transition-colors">วันนี้</button>
+            <button onclick="app.setDashFilter('week')" id="btn-dash-week" class="dash-btn-filter px-3 py-1.5 rounded-full border bg-gray-50 text-gray-600 hover:bg-indigo-50 font-medium transition-colors">7 วันล่าสุด</button>
+            <button onclick="app.setDashFilter('month')" id="btn-dash-month" class="dash-btn-filter px-3 py-1.5 rounded-full border bg-indigo-50 text-indigo-600 border-indigo-200 font-bold shadow-sm transition-colors">เดือนนี้</button>
+            <button onclick="app.setDashFilter('year')" id="btn-dash-year" class="dash-btn-filter px-3 py-1.5 rounded-full border bg-gray-50 text-gray-600 hover:bg-indigo-50 font-medium transition-colors">ปีนี้ (YTD)</button>
+            
+            <div class="flex items-center gap-1">
+                <input type="date" id="dash-start-date" class="border rounded-lg px-2 py-1 text-xs text-gray-600" onchange="app.setDashFilter('custom')">
+                <span class="text-gray-400">-</span>
+                <input type="date" id="dash-end-date" class="border rounded-lg px-2 py-1 text-xs text-gray-600" onchange="app.setDashFilter('custom')">
+            </div>
+
+            <div class="ml-auto flex items-center gap-2 border-l pl-3">
+                <span class="font-bold text-gray-500"><i class="fa-solid fa-user-tag"></i> ลูกค้า:</span>
+                <input type="text" id="dash-customer-filter" list="dash-customer-list" placeholder="พิมพ์หรือเลือกชื่อ..." 
+                       class="border rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white font-medium focus:ring-2 focus:ring-indigo-500 outline-none w-40" 
+                       oninput="app.renderDashboardFromFilter()">
+                <datalist id="dash-customer-list"></datalist>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            <!-- Section 1: Executive KPIs -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="dash-card flex flex-col justify-between">
+                    <i class="fa-solid fa-coins dash-icon-bg text-emerald-500"></i>
+                    <p class="text-xs text-emerald-600 font-bold uppercase mb-1">ยอดขายรวม</p>
+                    <h4 class="text-2xl font-bold text-gray-800 flex flex-wrap items-center gap-2">
+                        <span id="dash-kpi-revenue">0</span>
+                        <span id="dash-trend-rev" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md">-</span>
+                    </h4>
+                    <p class="text-[10px] text-gray-400 mt-1">บาท (ไม่รวมรับชำระหนี้)</p>
+                </div>
+                <div class="dash-card flex flex-col justify-between">
+                    <i class="fa-solid fa-boxes-stacked dash-icon-bg text-blue-500"></i>
+                    <p class="text-xs text-blue-600 font-bold uppercase mb-1">ปริมาณรวม</p>
+                    <h4 class="text-2xl font-bold text-gray-800 flex flex-wrap items-center gap-2">
+                        <span id="dash-kpi-volume">0</span>
+                        <span id="dash-trend-vol" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md">-</span>
+                    </h4>
+                    <p class="text-[10px] text-gray-400 mt-1">หน่วย (ชิ้น/กก.)</p>
+                </div>
+                <div class="dash-card flex flex-col justify-between">
+                    <i class="fa-solid fa-tags dash-icon-bg text-purple-500"></i>
+                    <p class="text-xs text-purple-600 font-bold uppercase mb-1">ราคาเฉลี่ยต่อหน่วย</p>
+                    <h4 class="text-2xl font-bold text-gray-800 flex flex-wrap items-center gap-2">
+                        <span id="dash-kpi-avgprice">0</span>
+                    </h4>
+                    <div class="mt-1 flex items-center justify-between text-[10px] text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                        <span>ต่ำสุด: <b id="dash-min-price" class="text-red-500">0</b></span>
+                        <span>สูงสุด: <b id="dash-max-price" class="text-emerald-500">0</b></span>
+                    </div>
+                </div>
+                <div class="dash-card border-amber-200 bg-amber-50/30 flex flex-col justify-between">
+                    <i class="fa-solid fa-hand-holding-dollar dash-icon-bg text-amber-500"></i>
+                    <p class="text-xs text-amber-600 font-bold uppercase mb-1">หนี้คงค้างสะสม</p>
+                    <h4 class="text-2xl font-bold text-red-600" id="dash-kpi-debt">0</h4>
+                    <p class="text-[10px] text-gray-500 mt-1">เงินที่จมอยู่กับลูกหนี้ทั้งหมด</p>
+                </div>
+                <div class="dash-card bg-emerald-50/50 flex flex-col justify-between border border-emerald-100">
+                    <i class="fa-solid fa-sack-dollar dash-icon-bg text-emerald-400"></i>
+                    <p class="text-xs text-emerald-700 font-bold uppercase mb-1">กระแสเงินสดรับ</p>
+                    <h4 class="text-2xl font-bold text-emerald-700 flex flex-wrap items-center gap-2 mb-1">
+                        <span id="dash-kpi-cash">0</span>
+                        <span id="dash-trend-cash" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md">-</span>
+                    </h4>
+                    <div class="mt-auto text-[9px] text-emerald-800 bg-emerald-100/50 px-2 py-1 rounded space-y-0.5 font-medium">
+                        <div class="flex justify-between border-b border-emerald-200/50 pb-0.5"><span>ขายสด/โอน:</span><span id="dash-cash-sales">0</span></div>
+                        <div class="flex justify-between pt-0.5"><span>ตามหนี้เก่า:</span><span id="dash-cash-debt">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2 & 4: Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Trend Chart -->
+                <div class="lg:col-span-2 dash-card flex flex-col">
+                    <h4 class="text-sm font-bold text-gray-700 mb-4"><i class="fa-solid fa-chart-area text-indigo-500 mr-2"></i>แนวโน้มยอดขายและปริมาณ (Trend)</h4>
+                    <div class="flex-1 relative min-h-[250px]">
+                        <canvas id="dashTrendChart"></canvas>
+                    </div>
+                </div>
+                <!-- Payment Breakdown -->
+                <div class="dash-card flex flex-col">
+                    <h4 class="text-sm font-bold text-gray-700 mb-4"><i class="fa-solid fa-chart-pie text-amber-500 mr-2"></i>สัดส่วนการรับเงิน / หนี้ที่เหลือจริง</h4>
+                    <div class="flex-1 relative min-h-[200px] flex items-center justify-center">
+                        <canvas id="dashPaymentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Tables -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Top Customers -->
+                <div class="dash-card">
+                    <h4 class="text-sm font-bold text-gray-700 mb-4 border-b pb-2"><i class="fa-solid fa-crown text-yellow-500 mr-2"></i>Top 10 ลูกค้า (ในช่วงเวลา)</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-gray-400 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 rounded-l-lg">ชื่อลูกค้า</th>
+                                    <th class="px-3 py-2 text-right">ยอดซื้อ (฿)</th>
+                                    <th class="px-3 py-2 text-center">ปริมาณ</th>
+                                    <th class="px-3 py-2 text-center rounded-r-lg">พฤติกรรมจ่ายเงิน</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-top-customers" class="divide-y divide-gray-100">
+                                <!-- JS injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- AR Aging / Top Debtors -->
+                <div class="dash-card border-red-100">
+                    <h4 class="text-sm font-bold text-red-600 mb-4 border-b border-red-50 pb-2"><i class="fa-solid fa-triangle-exclamation mr-2"></i>ลูกหนี้ค้างชำระ (AR Aging)</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-red-400 uppercase bg-red-50">
+                                <tr>
+                                    <th class="px-3 py-2 rounded-l-lg">ชื่อลูกค้า</th>
+                                    <th class="px-3 py-2 text-right text-red-600">ยอดหนี้สะสม</th>
+                                    <th class="px-3 py-2 text-center text-emerald-600">จ่ายคืนรอบนี้</th>
+                                    <th class="px-3 py-2 text-center rounded-r-lg">ค้างชำระ (วัน)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-top-debtors" class="divide-y divide-red-50">
+                                <!-- JS injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Bank Transfer Summary -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
+                <!-- สรุปยอดเงินโอนเข้าบัญชี -->
+                <div class="dash-card border-blue-100">
+                    <h4 class="text-sm font-bold text-blue-600 mb-4 border-b border-blue-50 pb-2"><i class="fa-solid fa-money-check-dollar mr-2"></i>สรุปยอดเงินโอนเข้าบัญชี (ในรอบเวลา)</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-blue-500 uppercase bg-blue-50">
+                                <tr>
+                                    <th class="px-3 py-2 rounded-l-lg">บัญชีรับเงิน</th>
+                                    <th class="px-3 py-2 text-center">จำนวนรายการ</th>
+                                    <th class="px-3 py-2 text-right rounded-r-lg">ยอดเงินรวม (฿)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dash-bank-transfers" class="divide-y divide-blue-50">
+                                <!-- JS injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- แจ้งเตือนเกณฑ์สรรพากร -->
+                    <div class="mt-3 text-[9px] text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 leading-relaxed">
+                        <b class="text-gray-700 block mb-1"><i class="fa-solid fa-circle-info text-blue-400"></i> ระบบเตือนก่อนทะลุเกณฑ์ภาษี (ต่อปี):</b>
+                        <span class="text-orange-500 font-bold">■ เสี่ยงสูง (ส้ม):</span> โอน &ge; 2,900 ครั้ง <span class="text-gray-400">หรือ</span> (&ge; 360 ครั้ง + ยอด &ge; 1.8 ล.)<br>
+                        <span class="text-red-500 font-bold">■ อันตราย (แดง):</span> โอน &ge; 2,930 ครั้ง <span class="text-gray-400">หรือ</span> (&ge; 380 ครั้ง + ยอด &ge; 1.9 ล.)
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -1223,6 +1423,11 @@ const app = {
         reportVisibility: { month: false, week: false, today: false, filter: false },
         calculatedTotals: { month: 0, week: 0, today: 0, filter: 0 }
     },
+    // Chart instances
+    dashTrendChartInst: null,
+    dashPaymentChartInst: null,
+    currentDashFilter: 'month',
+
     init() {
         this.resetForm();
         this.renderProdList();
@@ -2112,6 +2317,518 @@ const app = {
         pdf.addImage(img, 'JPEG', 0, 0, w, (canvas.height * w) / canvas.width);
         pdf.save(`${data.invoiceId}.pdf`);
         this.uploadPdf(data.invoiceId, pdf.output('datauristring').split(',')[1]);
+    },
+
+    /* ═══════════════════════════════════════════════════════
+       📊 DASHBOARD LOGIC (วิเคราะห์ยอดขาย)
+    ═══════════════════════════════════════════════════════ */
+    async openDashboard() {
+        if (this.data.reportData.length === 0) {
+            await this.loadReport(); // Ensure data is loaded
+        }
+        
+        // Populate Customer Datalist
+        const custList = document.getElementById('dash-customer-list');
+        const uniqueCusts = [...new Set(this.data.reportData.map(d => d.customerName).filter(Boolean))].sort();
+        custList.innerHTML = uniqueCusts.map(c => `<option value="${c}">`).join('');
+        document.getElementById('dash-customer-filter').value = ''; // เคลียร์ช่องค้นหาเมื่อเปิดหน้าต่าง
+
+        ui.openModal('analysis-modal');
+        this.setDashFilter('month'); // Default to this month
+    },
+
+    setDashFilter(filterType) {
+        this.currentDashFilter = filterType;
+        
+        // Update Buttons UI
+        document.querySelectorAll('.dash-btn-filter').forEach(btn => {
+            btn.className = 'dash-btn-filter px-3 py-1.5 rounded-full border bg-gray-50 text-gray-600 hover:bg-indigo-50 font-medium transition-colors';
+        });
+        const activeBtn = document.getElementById(`btn-dash-${filterType}`);
+        if(activeBtn) activeBtn.className = 'dash-btn-filter px-3 py-1.5 rounded-full border bg-indigo-50 text-indigo-600 border-indigo-200 font-bold shadow-sm transition-colors';
+
+        const now = new Date();
+        const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+        let startDate = '';
+        let endDate = localNow.toISOString().slice(0, 10);
+
+        if (filterType === 'today') {
+            startDate = endDate;
+        } else if (filterType === 'week') {
+            const past = new Date(localNow);
+            past.setDate(localNow.getDate() - 6);
+            startDate = past.toISOString().slice(0, 10);
+        } else if (filterType === 'month') {
+            startDate = endDate.slice(0, 7) + '-01';
+        } else if (filterType === 'year') {
+            startDate = endDate.slice(0, 4) + '-01-01';
+        } else if (filterType === 'custom') {
+            startDate = document.getElementById('dash-start-date').value;
+            endDate = document.getElementById('dash-end-date').value || '9999-12-31';
+        }
+
+        if (filterType !== 'custom') {
+            document.getElementById('dash-start-date').value = startDate;
+            document.getElementById('dash-end-date').value = endDate;
+        }
+
+        this.renderDashboardFromFilter();
+    },
+
+    renderDashboardFromFilter() {
+        const sDate = document.getElementById('dash-start-date').value;
+        const eDate = document.getElementById('dash-end-date').value || '9999-12-31';
+        const custFilter = document.getElementById('dash-customer-filter').value;
+        this.renderDashboard(sDate, eDate, custFilter);
+    },
+
+    // Helper: ดึงจำนวนปริมาณจาก Text "ทุเรียน (10x150), ส้ม (5x50)"
+    extractVolume(itemsStr) {
+        let vol = 0;
+        if(!itemsStr) return vol;
+        const regex = /\(([\d.]+)\s*x\s*[\d.]+\)/g;
+        let match;
+        while ((match = regex.exec(itemsStr)) !== null) {
+            vol += parseFloat(match[1]) || 0;
+        }
+        return vol;
+    },
+
+    // Helper: หาวันที่ของ Period ก่อนหน้าเพื่อเปรียบเทียบ
+    getPrevPeriodDates(filterType, startStr, endStr) {
+        if(!startStr || !endStr) return { pStart: '', pEnd: '' };
+        const s = new Date(startStr);
+        const e = new Date(endStr);
+        let ps = new Date(s), pe = new Date(e);
+
+        if(filterType === 'today') {
+            ps.setDate(s.getDate() - 1); pe.setDate(e.getDate() - 1);
+        } else if(filterType === 'week') {
+            ps.setDate(s.getDate() - 7); pe.setDate(e.getDate() - 7);
+        } else if(filterType === 'month') {
+            ps.setMonth(s.getMonth() - 1);
+            pe = new Date(s.getFullYear(), s.getMonth(), 0); // End of prev month
+        } else if(filterType === 'year') {
+            ps.setFullYear(s.getFullYear() - 1); pe.setFullYear(e.getFullYear() - 1);
+        } else { // custom - shift back by same duration
+            const diffTime = Math.abs(e - s);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            pe = new Date(s); pe.setDate(s.getDate() - 1);
+            ps = new Date(pe); ps.setDate(pe.getDate() - diffDays);
+        }
+        return { pStart: ps.toISOString().slice(0,10), pEnd: pe.toISOString().slice(0,10) };
+    },
+
+    // Helper: สร้างแผนที่หนี้ (ใช้ตรรกะ FIFO)
+    getGlobalDebtMap(customerFilter) {
+        const debtMap = {};
+        const custGroups = {};
+        
+        let targetData = this.data.reportData;
+        if(customerFilter) targetData = targetData.filter(d => d.customerName === customerFilter);
+
+        targetData.forEach(x => { 
+            if(!custGroups[x.customerName]) custGroups[x.customerName] = []; 
+            custGroups[x.customerName].push(x); 
+        });
+        
+        Object.values(custGroups).forEach(group => {
+            group.sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+            let generalPool = 0;
+            
+            group.forEach(x => {
+                if(x.note !== 'ชำระหนี้ค้าง' && (x.paymentMethod.includes('รอชำระ') || x.paymentMethod === 'ชำระแล้ว (C)')) {
+                    debtMap[x.invoiceId] = { name: x.customerName, remain: x.totalAmount, date: x.date };
+                }
+            });
+
+            group.forEach(x => {
+                if(x.note === 'ชำระหนี้ค้าง') {
+                    let allocatedAmount = 0;
+                    const match = x.items.match(/\[(.*?)\]/);
+                    if (match) {
+                        match[1].split(',').forEach(alloc => {
+                            const [inv, amtStr] = alloc.split(':');
+                            const amt = parseFloat(amtStr);
+                            if (inv && !isNaN(amt) && inv !== 'OVERPAYMENT' && debtMap[inv]) {
+                                debtMap[inv].remain = Math.round((debtMap[inv].remain - amt) * 100) / 100;
+                                allocatedAmount += amt;
+                            }
+                        });
+                    }
+                    generalPool += (x.totalAmount - allocatedAmount);
+                    generalPool = Math.round(generalPool * 100) / 100;
+                }
+            });
+
+            group.forEach(x => {
+                if(x.note !== 'ชำระหนี้ค้าง' && (x.paymentMethod.includes('รอชำระ') || x.paymentMethod === 'ชำระแล้ว (C)')) {
+                    if (debtMap[x.invoiceId] && debtMap[x.invoiceId].remain > 0.01 && generalPool > 0.01) {
+                        const deduct = Math.min(debtMap[x.invoiceId].remain, generalPool);
+                        debtMap[x.invoiceId].remain = Math.round((debtMap[x.invoiceId].remain - deduct) * 100) / 100;
+                        generalPool = Math.round((generalPool - deduct) * 100) / 100;
+                    }
+                }
+            });
+        });
+        return debtMap;
+    },
+
+    // Helper: คำนวณข้อมูลช่วงเวลา
+    calcPeriodStats(data, start, end, customerFilter) {
+        let rev = 0, vol = 0, cashCollected = 0, cashSales = 0, cashDebt = 0;
+        const trendMap = {};
+        const custStats = {};
+        let minPrice = Infinity, maxPrice = -Infinity;
+        const debtPaidByCust = {}; // ติดตามยอดจ่ายหนี้ในรอบนี้
+
+        const filtered = data.filter(d => {
+            if (start && d.date < start) return false;
+            if (end && d.date > end) return false;
+            if (customerFilter && d.customerName !== customerFilter) return false;
+            return true;
+        });
+
+        filtered.forEach(d => {
+            if (!trendMap[d.date]) trendMap[d.date] = { rev: 0, vol: 0 };
+
+            if (d.note === 'ชำระหนี้ค้าง') {
+                cashCollected += d.totalAmount;
+                cashDebt += d.totalAmount;
+                if(!debtPaidByCust[d.customerName]) debtPaidByCust[d.customerName] = 0;
+                debtPaidByCust[d.customerName] += d.totalAmount;
+            } else {
+                rev += d.totalAmount;
+                const v = this.extractVolume(d.items);
+                vol += v;
+                trendMap[d.date].rev += d.totalAmount;
+                trendMap[d.date].vol += v;
+
+                if (d.paymentMethod.includes('เงินสด') || d.paymentMethod.includes('โอน')) {
+                    cashCollected += d.totalAmount;
+                    cashSales += d.totalAmount;
+                }
+
+                // Min-Max Price
+                if (v > 0) {
+                    const price = d.totalAmount / v;
+                    if(price < minPrice) minPrice = price;
+                    if(price > maxPrice) maxPrice = price;
+                }
+
+                // Customer Profile
+                if(!custStats[d.customerName]) custStats[d.customerName] = { rev: 0, vol: 0, cashAmt: 0, creditAmt: 0 };
+                custStats[d.customerName].rev += d.totalAmount;
+                custStats[d.customerName].vol += v;
+                if (d.paymentMethod.includes('เงินสด') || d.paymentMethod.includes('โอน')) custStats[d.customerName].cashAmt += d.totalAmount;
+                if (d.paymentMethod.includes('รอชำระ')) custStats[d.customerName].creditAmt += d.totalAmount;
+            }
+        });
+
+        if(minPrice === Infinity) { minPrice = 0; maxPrice = 0; }
+        return { rev, vol, cashCollected, cashSales, cashDebt, minPrice, maxPrice, trendMap, custStats, debtPaidByCust, filtered };
+    },
+
+    renderDashboard(startDate, endDate, customerFilter = '') {
+        // 1. คำนวณรอบปัจจุบัน
+        const cur = this.calcPeriodStats(this.data.reportData, startDate, endDate, customerFilter);
+        const avgPrice = cur.vol > 0 ? (cur.rev / cur.vol) : 0;
+
+        // 2. คำนวณรอบก่อนหน้าเพื่อหา Trend (%)
+        const prevDates = this.getPrevPeriodDates(this.currentDashFilter, startDate, endDate);
+        const prev = this.calcPeriodStats(this.data.reportData, prevDates.pStart, prevDates.pEnd, customerFilter);
+
+        const calcTrend = (c, p) => {
+            if(p === 0) return c > 0 ? { val: '+100', class: 'trend-up', icon: '▲' } : { val: '-', class: 'trend-flat', icon: '-' };
+            const diff = ((c - p) / p) * 100;
+            if(diff > 0) return { val: '+' + diff.toFixed(1), class: 'trend-up', icon: '▲' };
+            if(diff < 0) return { val: diff.toFixed(1), class: 'trend-down', icon: '▼' };
+            return { val: '0', class: 'trend-flat', icon: '-' };
+        };
+
+        const tRev = calcTrend(cur.rev, prev.rev);
+        const tVol = calcTrend(cur.vol, prev.vol);
+        const tCash = calcTrend(cur.cashCollected, prev.cashCollected);
+
+        // 3. อัปเดตตัวชี้วัด (KPIs)
+        document.getElementById('dash-kpi-revenue').innerText = cur.rev.toLocaleString('th-TH', {maximumFractionDigits:0});
+        document.getElementById('dash-trend-rev').innerHTML = `${tRev.icon} ${tRev.val}%`;
+        document.getElementById('dash-trend-rev').className = `text-[10px] font-bold px-1.5 py-0.5 rounded-md ${tRev.class}`;
+
+        document.getElementById('dash-kpi-volume').innerText = cur.vol.toLocaleString('th-TH', {maximumFractionDigits:1});
+        document.getElementById('dash-trend-vol').innerHTML = `${tVol.icon} ${tVol.val}%`;
+        document.getElementById('dash-trend-vol').className = `text-[10px] font-bold px-1.5 py-0.5 rounded-md ${tVol.class}`;
+
+        document.getElementById('dash-kpi-avgprice').innerText = avgPrice.toLocaleString('th-TH', {maximumFractionDigits:2});
+        document.getElementById('dash-min-price').innerText = cur.minPrice.toLocaleString('th-TH', {maximumFractionDigits:0});
+        document.getElementById('dash-max-price').innerText = cur.maxPrice.toLocaleString('th-TH', {maximumFractionDigits:0});
+
+        document.getElementById('dash-kpi-cash').innerText = cur.cashCollected.toLocaleString('th-TH', {maximumFractionDigits:0});
+        document.getElementById('dash-trend-cash').innerHTML = `${tCash.icon} ${tCash.val}%`;
+        document.getElementById('dash-trend-cash').className = `text-[10px] font-bold px-1.5 py-0.5 rounded-md ${tCash.class}`;
+        document.getElementById('dash-cash-sales').innerText = cur.cashSales.toLocaleString('th-TH', {maximumFractionDigits:0});
+        document.getElementById('dash-cash-debt').innerText = cur.cashDebt.toLocaleString('th-TH', {maximumFractionDigits:0});
+
+        // 4. หนี้คงค้างสะสม (Global Debt - ไม่สนใจช่วงเวลา แต่สนใจ Customer Filter)
+        const debtMap = this.getGlobalDebtMap(customerFilter);
+        let totalGlobalDebt = 0;
+        const debtorBalances = {};
+
+        Object.values(debtMap).forEach(d => {
+            if (d.remain > 0.01) {
+                totalGlobalDebt += d.remain;
+                if(!debtorBalances[d.name]) debtorBalances[d.name] = { total: 0, oldestDate: d.date };
+                debtorBalances[d.name].total += d.remain;
+                if(d.date < debtorBalances[d.name].oldestDate) debtorBalances[d.name].oldestDate = d.date;
+            }
+        });
+        document.getElementById('dash-kpi-debt').innerText = totalGlobalDebt.toLocaleString('th-TH', {maximumFractionDigits:0});
+
+        // 5. ตาราง Top ลูกหนี้ + ยอดที่จ่ายในรอบนี้ (เปลี่ยนแสดงผลเป็น จำนวนวันค้างชำระ)
+        const todayObj = new Date();
+        
+        const topDebtors = Object.entries(debtorBalances)
+            .map(([name, data]) => ({ name, amt: data.total, date: data.oldestDate, paidThisRound: cur.debtPaidByCust[name] || 0 }))
+            .sort((a,b) => b.amt - a.amt)
+            .slice(0, 10);
+            
+        document.getElementById('dash-top-debtors').innerHTML = topDebtors.length ? topDebtors.map(d => {
+            const [y, m, day] = d.date.split('-');
+            const bDate = new Date(y, m - 1, day);
+            const diffTime = todayObj.getTime() - bDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            let daysHtml = '';
+            if (diffDays > 7) {
+                daysHtml = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded font-bold">${diffDays} วัน</span>`;
+            } else if (diffDays > 0) {
+                daysHtml = `<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">${diffDays} วัน</span>`;
+            } else {
+                daysHtml = `<span class="text-gray-500 font-medium">วันนี้</span>`;
+            }
+
+            const paidHtml = d.paidThisRound > 0 ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">+ ${d.paidThisRound.toLocaleString()}</span>` : `<span class="text-gray-300">-</span>`;
+            return `<tr class="hover:bg-red-50/50"><td class="px-3 py-2 font-medium text-gray-700">${d.name}</td><td class="px-3 py-2 text-right font-bold text-red-500">${d.amt.toLocaleString()}</td><td class="px-3 py-2 text-center">${paidHtml}</td><td class="px-3 py-2 text-center text-xs">${daysHtml}</td></tr>`;
+        }).join('') : `<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 italic">ไม่มียอดหนี้ค้างชำระ</td></tr>`;
+
+        // 6. ตาราง Top ลูกค้า + พฤติกรรมการจ่าย
+        const topCusts = Object.entries(cur.custStats)
+            .map(([name, data]) => {
+                const total = data.cashAmt + data.creditAmt;
+                const cashPct = total > 0 ? Math.round((data.cashAmt / total) * 100) : 0;
+                return { name, rev: data.rev, vol: data.vol, cashPct, creditPct: 100 - cashPct };
+            })
+            .sort((a,b) => b.rev - a.rev)
+            .slice(0, 10);
+
+        document.getElementById('dash-top-customers').innerHTML = topCusts.length ? topCusts.map(c => {
+            let behavior = '';
+            if(c.cashPct === 100) behavior = '<span class="text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-bold">เงินสด 100%</span>';
+            else if(c.creditPct === 100) behavior = '<span class="text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-[10px] font-bold">เครดิต 100%</span>';
+            else behavior = `<div class="w-full bg-amber-100 rounded-full h-3.5 flex overflow-hidden border border-gray-200" title="สด ${c.cashPct}% / เครดิต ${c.creditPct}%"><div class="bg-emerald-400 h-full flex items-center justify-center text-[8px] text-white font-bold" style="width: ${c.cashPct}%">${c.cashPct}%</div></div>`;
+            
+            return `<tr class="hover:bg-gray-50"><td class="px-3 py-2 font-medium text-gray-700">${c.name}</td><td class="px-3 py-2 text-right text-emerald-600 font-bold">${c.rev.toLocaleString()}</td><td class="px-3 py-2 text-center text-blue-600">${c.vol.toLocaleString()}</td><td class="px-3 py-2 text-center align-middle">${behavior}</td></tr>`;
+        }).join('') : `<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 italic">ไม่มีข้อมูลในรอบเวลานี้</td></tr>`;
+
+        // 7. จัดเตรียมข้อมูลสำหรับ Pie Chart (นำเฉพาะยอดหนี้ที่ยังเหลือค้างจริงๆ มาเป็นตัวแทนของ เครดิต)
+        let payCash = 0, payTransfer = 0, payCredit = 0;
+        cur.filtered.forEach(d => {
+            if(d.note === 'ชำระหนี้ค้าง') {
+                if(d.paymentMethod.includes('เงินสด')) payCash += d.totalAmount;
+                else if(d.paymentMethod.includes('โอน')) payTransfer += d.totalAmount;
+            } else {
+                if(d.paymentMethod.includes('เงินสด')) payCash += d.totalAmount;
+                else if(d.paymentMethod.includes('โอน')) payTransfer += d.totalAmount;
+                else if(d.paymentMethod.includes('รอชำระ') || d.paymentMethod === 'ชำระแล้ว (C)') {
+                    // ใช้ยอดคงเหลือปัจจุบันจากแผนที่หนี้เท่านั้น
+                    const remain = debtMap[d.invoiceId] ? debtMap[d.invoiceId].remain : 0;
+                    payCredit += remain;
+                }
+            }
+        });
+
+        // 7.5 สรุปยอดเงินโอนเข้าบัญชีแยกรายธนาคาร
+        const bankStats = {};
+        cur.filtered.forEach(d => {
+            if (d.paymentMethod && d.paymentMethod.includes('โอน')) {
+                let bankName = 'ไม่ระบุบัญชี';
+                // แกะชื่อบัญชีออกจาก format เช่น โอน(กสิกรไทย)
+                const match = d.paymentMethod.match(/โอน\((.*?)\)/);
+                if (match && match[1]) {
+                    bankName = match[1].trim();
+                } else if (d.paymentMethod === 'โอน (QR Code)') {
+                    bankName = 'โอน (QR Code)'; // กรณีรายการเก่าที่ยังไม่ได้ผูกบัญชี
+                }
+
+                if (!bankStats[bankName]) {
+                    bankStats[bankName] = { count: 0, amount: 0 };
+                }
+                bankStats[bankName].count += 1;
+                bankStats[bankName].amount += d.totalAmount;
+            }
+        });
+
+        // จัดเรียงตามยอดเงินรวมจากมากไปน้อย
+        const bankList = Object.entries(bankStats)
+            .map(([name, data]) => ({ name, count: data.count, amount: data.amount }))
+            .sort((a, b) => b.amount - a.amount);
+
+        document.getElementById('dash-bank-transfers').innerHTML = bankList.length ? bankList.map(b => {
+            // ─── 🚨 LOGIC แจ้งเตือนเกณฑ์สรรพากร (เตือนล่วงหน้า) ───
+            let level1 = 0; // กรณีที่ 1: นับครั้งอย่างเดียว
+            if (b.count >= 2930) level1 = 2; // แดง
+            else if (b.count >= 2900) level1 = 1; // ส้ม
+
+            let level2 = 0; // กรณีที่ 2: ครั้ง + ยอดเงิน
+            if (b.count >= 380 && b.amount >= 1900000) level2 = 2; // แดง
+            else if (b.count >= 360 && b.amount >= 1800000) level2 = 1; // ส้ม
+
+            let finalLevel = Math.max(level1, level2);
+            
+            let rowClass = "hover:bg-blue-50/50";
+            let iconClass = "text-blue-300";
+            let textClassCount = "text-gray-600";
+            let textClassAmount = "text-blue-600";
+            let alertHtml = "";
+
+            if (finalLevel === 2) {
+                // ระดับอันตราย (แดง กระพริบ)
+                rowClass = "bg-red-50 hover:bg-red-100 border-l-4 border-red-500";
+                iconClass = "text-red-500 animate-pulse";
+                textClassCount = "text-red-600";
+                textClassAmount = "text-red-600";
+                
+                let tooltipMsg = level1 === 2 
+                    ? "อันตราย! รับโอนทะลุ 2,930 ครั้งแล้ว (ใกล้ 3,000 ครั้ง)" 
+                    : "อันตราย! รับโอนทะลุ 380 ครั้ง และยอดเกิน 1.9 ล้านบาท";
+                
+                alertHtml = `<div class="mt-1"><span class="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm animate-pulse cursor-help" title="${tooltipMsg}"><i class="fa-solid fa-triangle-exclamation"></i> เสี่ยงสูงมาก (เตรียมสลับบัญชี)</span></div>`;
+            
+            } else if (finalLevel === 1) {
+                // ระดับเฝ้าระวัง (ส้ม)
+                rowClass = "bg-orange-50 hover:bg-orange-100 border-l-4 border-orange-400";
+                iconClass = "text-orange-400";
+                textClassCount = "text-orange-600";
+                textClassAmount = "text-orange-600";
+                
+                let tooltipMsg = level1 === 1 
+                    ? "เฝ้าระวัง! รับโอนทะลุ 2,900 ครั้งแล้ว" 
+                    : "เฝ้าระวัง! รับโอนทะลุ 360 ครั้ง และยอดเกิน 1.8 ล้านบาท";
+                
+                alertHtml = `<div class="mt-1"><span class="bg-orange-400 text-white text-[9px] px-1.5 py-0.5 rounded shadow-sm cursor-help" title="${tooltipMsg}"><i class="fa-solid fa-circle-exclamation"></i> เฝ้าระวัง</span></div>`;
+            }
+
+            return `<tr class="${rowClass} transition-colors">
+                <td class="px-3 py-3 font-medium ${finalLevel > 0 ? 'text-gray-800' : 'text-gray-700'}">
+                    <div class="flex items-start">
+                        <i class="fa-solid fa-building-columns ${iconClass} mr-2 mt-1"></i>
+                        <div>
+                            ${b.name}
+                            ${alertHtml}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-3 py-3 text-center ${textClassCount} font-bold">${b.count.toLocaleString()}</td>
+                <td class="px-3 py-3 text-right font-bold ${textClassAmount}">${b.amount.toLocaleString('th-TH')}</td>
+            </tr>`;
+        }).join('') : `<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 italic">ไม่มีรายการโอนเงินในรอบเวลานี้</td></tr>`;
+
+        // 8. สร้างกราฟ
+        this.renderDashCharts(cur.trendMap, payCash, payTransfer, payCredit);
+    },
+
+    renderDashCharts(trendMap, cash, transfer, credit) {
+        // Prepare Data for Trend Chart
+        const dates = Object.keys(trendMap).sort();
+        const thDates = dates.map(d => {
+            const [y,m,day] = d.split('-');
+            return `${day}/${m}`; // Short format for chart
+        });
+        const revData = dates.map(d => trendMap[d].rev);
+        const volData = dates.map(d => trendMap[d].vol);
+
+        // Trend Line Chart
+        const ctxTrend = document.getElementById('dashTrendChart').getContext('2d');
+        if(this.dashTrendChartInst) this.dashTrendChartInst.destroy();
+        
+        this.dashTrendChartInst = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: thDates,
+                datasets: [
+                    {
+                        label: 'ยอดขาย (บาท)',
+                        data: revData,
+                        borderColor: '#6366f1', // Indigo 500
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'ปริมาณ (หน่วย)',
+                        data: volData,
+                        borderColor: '#3b82f6', // Blue 500
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        yAxisID: 'y1',
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { family: "'Prompt', sans-serif", size: 10 } } }
+                },
+                scales: {
+                    x: { ticks: { font: { family: "'Prompt', sans-serif", size: 10 } }, grid: { display: false } },
+                    y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'ยอดขาย (฿)', font: { family: "'Prompt', sans-serif", size: 10 } }, ticks: { font: { family: "'Prompt', sans-serif", size: 10 } } },
+                    y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'ปริมาณ', font: { family: "'Prompt', sans-serif", size: 10 } }, grid: { drawOnChartArea: false }, ticks: { font: { family: "'Prompt', sans-serif", size: 10 } } }
+                }
+            }
+        });
+
+        // Payment Donut Chart
+        const ctxPay = document.getElementById('dashPaymentChart').getContext('2d');
+        if(this.dashPaymentChartInst) this.dashPaymentChartInst.destroy();
+
+        if (cash === 0 && transfer === 0 && credit === 0) {
+            // Placeholder empty chart
+            this.dashPaymentChartInst = new Chart(ctxPay, { type: 'doughnut', data: { labels: ['ไม่มีข้อมูล'], datasets: [{ data: [1], backgroundColor: ['#f3f4f6'] }] }, options: { plugins: { legend: { display: false }, tooltip: { enabled: false } } }});
+            return;
+        }
+
+        this.dashPaymentChartInst = new Chart(ctxPay, {
+            type: 'doughnut',
+            data: {
+                labels: ['เงินสด', 'โอนเงิน', 'เครดิต (แปะโป้ง)'],
+                datasets: [{
+                    data: [cash, transfer, credit],
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'], // Emerald, Blue, Amber
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 15, font: { family: "'Prompt', sans-serif", size: 11 } } },
+                    tooltip: { callbacks: { label: function(context) {
+                        let label = context.label || '';
+                        if (label) { label += ': '; }
+                        if (context.parsed !== null) { label += new Intl.NumberFormat('th-TH').format(context.parsed) + ' ฿'; }
+                        return label;
+                    }}}
+                }
+            }
+        });
     }
 };
 
